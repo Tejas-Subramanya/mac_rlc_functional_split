@@ -129,6 +129,30 @@ uint32_t emoai_get_ue_crnti (ueid_t ue_id) {
 	return UE_RNTI(DEFAULT_ENB_ID, ue_id);
 }
 
+char* emoai_get_ue_imsi (ueid_t ue_id) {
+	struct rrc_eNB_ue_context_s* ue_context_p = emoai_get_ue_context(ue_id);
+
+	if (ue_context_p != NULL && (&ue_context_p->ue_context != NULL)) {
+		/* IMSI length is 15. */
+		char *imsi = calloc(16, sizeof(char));
+		strcpy(imsi, ue_context_p->ue_context.ue_imsi);
+		return imsi;
+	}
+	return NULL;
+}
+
+char* emoai_get_selected_plmn_id (ueid_t ue_id) {
+	struct rrc_eNB_ue_context_s* ue_context_p = emoai_get_ue_context(ue_id);
+
+	if (ue_context_p != NULL && (&ue_context_p->ue_context != NULL)) {
+		/* PLMN ID max length is 6. */
+		char *plmn_id = calloc(7, sizeof(char));
+		strcpy(plmn_id, ue_context_p->ue_context.plmn_id);
+		return plmn_id;
+	}
+	return NULL;
+}
+
 UE_TEMPLATE emoai_get_ue_template (ueid_t ue_id) {
 	UE_list_t *UE_list;
 	UE_list = &(&eNB_mac_inst[DEFAULT_ENB_ID])->UE_list;
