@@ -44,6 +44,9 @@
 # include "rrc_eNB_UE_context.h"
 # include "rrc_eNB_S1AP.h"
 # include "enb_config.h"
+# include "s1ap_eNB_defs.h"
+# include "s1ap_eNB_management_procedures.h"
+# include "s1ap_eNB_ue_context.h"
 
 # if defined(ENABLE_ITTI)
 #   include "asn1_conversions.h"
@@ -908,18 +911,18 @@ rrc_eNB_send_S1AP_NAS_FIRST_REQ(
               ue_context_pP->ue_context.ue_imsi[14] = '0' + e_msg->attach_request.oldgutiorimsi.imsi.digit15;
               ue_context_pP->ue_context.ue_imsi[15] = '\0';
             }
-            else if (e_msg->attach_request.oldgutiorimsi.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
-              ue_context_pP->ue_context.plmn_id[0] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit1;
-              ue_context_pP->ue_context.plmn_id[1] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit2;
-              ue_context_pP->ue_context.plmn_id[2] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit3;
-              ue_context_pP->ue_context.plmn_id[3] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit1;
-              ue_context_pP->ue_context.plmn_id[4] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit2;
-              ue_context_pP->ue_context.plmn_id[5] = '\0';
-              if (e_msg->attach_request.oldgutiorimsi.guti.mncdigit3 != 0xF) {
-                ue_context_pP->ue_context.plmn_id[5] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit3;
-                ue_context_pP->ue_context.plmn_id[6] = '\0';
-              }
-            }
+            // else if (e_msg->attach_request.oldgutiorimsi.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
+            //   ue_context_pP->ue_context.plmn_id[0] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit1;
+            //   ue_context_pP->ue_context.plmn_id[1] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit2;
+            //   ue_context_pP->ue_context.plmn_id[2] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mccdigit3;
+            //   ue_context_pP->ue_context.plmn_id[3] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit1;
+            //   ue_context_pP->ue_context.plmn_id[4] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit2;
+            //   ue_context_pP->ue_context.plmn_id[5] = '\0';
+            //   if (e_msg->attach_request.oldgutiorimsi.guti.mncdigit3 != 0xF) {
+            //     ue_context_pP->ue_context.plmn_id[5] = '0' + e_msg->attach_request.oldgutiorimsi.guti.mncdigit3;
+            //     ue_context_pP->ue_context.plmn_id[6] = '\0';
+            //   }
+            // }
           }
 
           pdu_buff -= e_head_size;
@@ -951,6 +954,9 @@ rrc_eNB_send_S1AP_NAS_FIRST_REQ(
             ue_context_pP->ue_context.rnti);
       }
 
+      const Enb_properties_array_t   *enb_properties_p  = NULL;
+      enb_properties_p = enb_config_get();
+
       if (rrcConnectionSetupComplete->registeredMME != NULL) {
         /* Fill GUMMEI */
         struct RegisteredMME *r_mme = rrcConnectionSetupComplete->registeredMME;
@@ -962,7 +968,10 @@ rrc_eNB_send_S1AP_NAS_FIRST_REQ(
         if (r_mme->plmn_Identity != NULL) {
           if ((r_mme->plmn_Identity->mcc != NULL) && (r_mme->plmn_Identity->mcc->list.count > 0)) {
             /* Use first indicated PLMN MCC if it is defined */
-            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc = *r_mme->plmn_Identity->mcc->list.array[0];
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc = 0;
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc += *r_mme->plmn_Identity->mcc->list.array[0] * 100;
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc += *r_mme->plmn_Identity->mcc->list.array[1] * 10;
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc += *r_mme->plmn_Identity->mcc->list.array[2];
             LOG_I(S1AP, "[eNB %d] Build S1AP_NAS_FIRST_REQ adding in s_TMSI: GUMMEI MCC %u ue %x\n",
                 ctxt_pP->module_id,
                 S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc,
@@ -971,24 +980,39 @@ rrc_eNB_send_S1AP_NAS_FIRST_REQ(
 
           if (r_mme->plmn_Identity->mnc.list.count > 0) {
             /* Use first indicated PLMN MNC if it is defined */
-            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc = *r_mme->plmn_Identity->mnc.list.array[0];
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc = 0;
+            if (r_mme->plmn_Identity->mnc.list.count > 2) {
+              S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc += *r_mme->plmn_Identity->mnc.list.array[0] * 100;
+              S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc += *r_mme->plmn_Identity->mnc.list.array[1] * 10;
+              S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc += *r_mme->plmn_Identity->mnc.list.array[2];
+            } else {
+              S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc += *r_mme->plmn_Identity->mnc.list.array[0] * 10;
+              S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc += *r_mme->plmn_Identity->mnc.list.array[1];
+            }
+            S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc_len = r_mme->plmn_Identity->mnc.list.count;
             LOG_I(S1AP, "[eNB %d] Build S1AP_NAS_FIRST_REQ adding in s_TMSI: GUMMEI MNC %u ue %x\n",
                   ctxt_pP->module_id,
                   S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc,
                   ue_context_pP->ue_context.rnti);
           }
         } else {
-          const Enb_properties_array_t   *enb_properties_p  = NULL;
-          enb_properties_p = enb_config_get();
-
           // actually the eNB configuration contains only one PLMN (can be up to 6)
           S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc = enb_properties_p->properties[ctxt_pP->module_id]->mcc;
           S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc = enb_properties_p->properties[ctxt_pP->module_id]->mnc;
           S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc_len = enb_properties_p->properties[ctxt_pP->module_id]->mnc_digit_length;
         }
 
+        /* Alter the gummei.mcc, gummei.mnc, MME Code and MME Group ID to direct the UE to particular MME */
         S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_code     = BIT_STRING_to_uint8 (&r_mme->mmec);
         S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_group_id = BIT_STRING_to_uint16 (&r_mme->mmegi);
+
+        /* Reason behind setting mcc and mnc here is to make sure request is forwarded to desired MME in case UE had been
+         * successfully attached to a MME with different PLMN ID than the currently attaching MME. */
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc = enb_properties_p->properties[ctxt_pP->module_id]->mcc;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc = enb_properties_p->properties[ctxt_pP->module_id]->mnc;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc_len = enb_properties_p->properties[ctxt_pP->module_id]->mnc_digit_length;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_code     = 1;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_group_id = 4;
 
         MSC_LOG_TX_MESSAGE(
           MSC_S1AP_ENB,
@@ -1005,6 +1029,13 @@ rrc_eNB_send_S1AP_NAS_FIRST_REQ(
               S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_code,
               S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_group_id,
               ue_context_pP->ue_context.rnti);
+      } else {
+        /* Add the GUMMEI even in the case registeredMME field is not sent. This is used to steer the UE to a particular MME. */
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mcc = enb_properties_p->properties[ctxt_pP->module_id]->mcc;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc = enb_properties_p->properties[ctxt_pP->module_id]->mnc;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mnc_len = enb_properties_p->properties[ctxt_pP->module_id]->mnc_digit_length;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_code     = 1;
+        S1AP_NAS_FIRST_REQ (message_p).ue_identity.gummei.mme_group_id = 4;
       }
     }
     itti_send_msg_to_task (TASK_S1AP, ctxt_pP->instance, message_p);
@@ -1092,6 +1123,35 @@ rrc_eNB_process_S1AP_DOWNLINK_NAS(
     /* Is it the first income from S1AP ? */
     if (ue_context_p->ue_context.eNB_ue_s1ap_id == 0) {
       ue_context_p->ue_context.eNB_ue_s1ap_id = S1AP_DOWNLINK_NAS (msg_p).eNB_ue_s1ap_id;
+
+      /* PLMN ID extraction without NAS hack */
+      s1ap_eNB_instance_t *s1ap_eNB_instance_p = NULL;
+      s1ap_eNB_instance_p = s1ap_eNB_get_instance(ITTI_MESSAGE_GET_INSTANCE(msg_p));
+      if (s1ap_eNB_instance_p != NULL) {
+        struct s1ap_eNB_ue_context_s *s1ap_ue_ctxt = NULL;
+        s1ap_ue_ctxt = s1ap_eNB_get_ue_context(s1ap_eNB_instance_p, ue_context_p->ue_context.eNB_ue_s1ap_id);
+        if (s1ap_ue_ctxt != NULL) {
+          uint16_t mcc = s1ap_ue_ctxt->eNB_instance->mcc;
+          uint16_t mnc = s1ap_ue_ctxt->eNB_instance->mnc;
+          uint8_t  mnc_digit_length = s1ap_ue_ctxt->eNB_instance->mnc_digit_length;
+          ue_context_p->ue_context.plmn_id[2] = '0' + (mcc % 10);
+          mcc = (int) mcc / 10;
+          ue_context_p->ue_context.plmn_id[1] = '0' + (mcc % 10);
+          mcc = (int) mcc / 10;
+          ue_context_p->ue_context.plmn_id[0] = '0' + (mcc % 10);
+          if (mnc_digit_length > 2) {
+            ue_context_p->ue_context.plmn_id[5] = '0' + (mnc % 10);
+            mnc = (int) mnc / 10;
+            ue_context_p->ue_context.plmn_id[6] = '\0';
+          } else {
+            ue_context_p->ue_context.plmn_id[5] = '\0';
+          }
+          ue_context_p->ue_context.plmn_id[4] = '0' + (mnc % 10);
+          mnc = (int) mnc / 10;
+          ue_context_p->ue_context.plmn_id[3] = '0' + (mnc % 10);
+        }
+      }
+      /* PLMN ID extraction without NAS hack */
     }
 
     MSC_LOG_RX_MESSAGE(
@@ -1221,83 +1281,83 @@ int rrc_eNB_process_S1AP_INITIAL_CONTEXT_SETUP_REQ(MessageDef *msg_p, const char
 
     /* PLMN ID extraction start*/
 
-    for (int i = 0; i < ue_context_p->ue_context.nb_of_e_rabs; i++) {
+    // for (int i = 0; i < ue_context_p->ue_context.nb_of_e_rabs; i++) {
 
-      nas_message_t nas_msg;
-      memset(&nas_msg, 0, sizeof(nas_message_t));
+    //   nas_message_t nas_msg;
+    //   memset(&nas_msg, 0, sizeof(nas_message_t));
 
-      int size = 0;
-      uint32_t pdu_len = ue_context_p->ue_context.e_rab[i].param.nas_pdu.length;
-      uint8_t *pdu_buff = malloc(pdu_len * sizeof(uint8_t));
-      memcpy(pdu_buff, ue_context_p->ue_context.e_rab[i].param.nas_pdu.buffer, pdu_len * sizeof(uint8_t));
+    //   int size = 0;
+    //   uint32_t pdu_len = ue_context_p->ue_context.e_rab[i].param.nas_pdu.length;
+    //   uint8_t *pdu_buff = malloc(pdu_len * sizeof(uint8_t));
+    //   memcpy(pdu_buff, ue_context_p->ue_context.e_rab[i].param.nas_pdu.buffer, pdu_len * sizeof(uint8_t));
 
-      nas_message_security_header_t      *header = &nas_msg.header;
-      //  Decode the first octet of the header (security header type or EPS bearer identity, and protocol discriminator)
-      DECODE_U8((char *) pdu_buff, *(uint8_t*) (header), size);
+    //   nas_message_security_header_t      *header = &nas_msg.header;
+    //   //  Decode the first octet of the header (security header type or EPS bearer identity, and protocol discriminator)
+    //   DECODE_U8((char *) pdu_buff, *(uint8_t*) (header), size);
 
-      /* Decode NAS message */
-      if (header->protocol_discriminator == EPS_MOBILITY_MANAGEMENT_MESSAGE &&
-          pdu_len > NAS_MESSAGE_SECURITY_HEADER_SIZE) {
+    //   /* Decode NAS message */
+    //   if (header->protocol_discriminator == EPS_MOBILITY_MANAGEMENT_MESSAGE &&
+    //       pdu_len > NAS_MESSAGE_SECURITY_HEADER_SIZE) {
 
-        if (header->security_header_type != SECURITY_HEADER_TYPE_NOT_PROTECTED) {
-          /* Decode the message authentication code */
-          DECODE_U32((char *) pdu_buff+size, header->message_authentication_code, size);
-          /* Decode the sequence number */
-          DECODE_U8((char *) pdu_buff+size, header->sequence_number, size);
-        }
+    //     if (header->security_header_type != SECURITY_HEADER_TYPE_NOT_PROTECTED) {
+    //       /* Decode the message authentication code */
+    //       DECODE_U32((char *) pdu_buff+size, header->message_authentication_code, size);
+    //       /* Decode the sequence number */
+    //       DECODE_U8((char *) pdu_buff+size, header->sequence_number, size);
+    //     }
 
-        if (size > 1) {
-          pdu_buff += size;
-          pdu_len -= size;
-        }
+    //     if (size > 1) {
+    //       pdu_buff += size;
+    //       pdu_len -= size;
+    //     }
 
-        /* Decode plain NAS message */
-        EMM_msg *e_msg = &nas_msg.plain.emm;
-        emm_msg_header_t *emm_header = &e_msg->header;
+    //     /* Decode plain NAS message */
+    //     EMM_msg *e_msg = &nas_msg.plain.emm;
+    //     emm_msg_header_t *emm_header = &e_msg->header;
 
-        /* First decode the EMM message header */
-        int e_head_size = 0;
+    //     /* First decode the EMM message header */
+    //     int e_head_size = 0;
 
-        /* Check the buffer length */
-        if (pdu_len > sizeof(emm_msg_header_t)) {
+    //     /* Check the buffer length */
+    //     if (pdu_len > sizeof(emm_msg_header_t)) {
 
-          /* Decode the security header type and the protocol discriminator */
-          DECODE_U8(pdu_buff + e_head_size, *(uint8_t *)(emm_header), e_head_size);
-          /* Decode the message type */
-          DECODE_U8(pdu_buff + e_head_size, emm_header->message_type, e_head_size);
+    //       /* Decode the security header type and the protocol discriminator */
+    //       DECODE_U8(pdu_buff + e_head_size, *(uint8_t *)(emm_header), e_head_size);
+    //       /* Decode the message type */
+    //       DECODE_U8(pdu_buff + e_head_size, emm_header->message_type, e_head_size);
 
-          /* Check the protocol discriminator */
-          if (emm_header->protocol_discriminator == EPS_MOBILITY_MANAGEMENT_MESSAGE) {
+    //       /* Check the protocol discriminator */
+    //       if (emm_header->protocol_discriminator == EPS_MOBILITY_MANAGEMENT_MESSAGE) {
 
-            pdu_buff += e_head_size;
-            pdu_len -= e_head_size;
+    //         pdu_buff += e_head_size;
+    //         pdu_len -= e_head_size;
 
-            if (emm_header->message_type == ATTACH_ACCEPT) {
-              decode_attach_accept(&e_msg->attach_accept, pdu_buff, pdu_len);
+    //         if (emm_header->message_type == ATTACH_ACCEPT) {
+    //           decode_attach_accept(&e_msg->attach_accept, pdu_buff, pdu_len);
 
-              if (e_msg->attach_accept.guti.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
-                ue_context_p->ue_context.plmn_id[0] = '0' + e_msg->attach_accept.guti.guti.mccdigit1;
-                ue_context_p->ue_context.plmn_id[1] = '0' + e_msg->attach_accept.guti.guti.mccdigit2;
-                ue_context_p->ue_context.plmn_id[2] = '0' + e_msg->attach_accept.guti.guti.mccdigit3;
-                ue_context_p->ue_context.plmn_id[3] = '0' + e_msg->attach_accept.guti.guti.mncdigit1;
-                ue_context_p->ue_context.plmn_id[4] = '0' + e_msg->attach_accept.guti.guti.mncdigit2;
-                ue_context_p->ue_context.plmn_id[5] = '\0';
-                if (e_msg->attach_accept.guti.guti.mncdigit3 != 0xF) {
-                  ue_context_p->ue_context.plmn_id[5] = '0' + e_msg->attach_accept.guti.guti.mncdigit3;
-                  ue_context_p->ue_context.plmn_id[6] = '\0';
-                }
-              }
-            }
+    //           if (e_msg->attach_accept.guti.guti.typeofidentity == EPS_MOBILE_IDENTITY_GUTI) {
+    //             ue_context_p->ue_context.plmn_id[0] = '0' + e_msg->attach_accept.guti.guti.mccdigit1;
+    //             ue_context_p->ue_context.plmn_id[1] = '0' + e_msg->attach_accept.guti.guti.mccdigit2;
+    //             ue_context_p->ue_context.plmn_id[2] = '0' + e_msg->attach_accept.guti.guti.mccdigit3;
+    //             ue_context_p->ue_context.plmn_id[3] = '0' + e_msg->attach_accept.guti.guti.mncdigit1;
+    //             ue_context_p->ue_context.plmn_id[4] = '0' + e_msg->attach_accept.guti.guti.mncdigit2;
+    //             ue_context_p->ue_context.plmn_id[5] = '\0';
+    //             if (e_msg->attach_accept.guti.guti.mncdigit3 != 0xF) {
+    //               ue_context_p->ue_context.plmn_id[5] = '0' + e_msg->attach_accept.guti.guti.mncdigit3;
+    //               ue_context_p->ue_context.plmn_id[6] = '\0';
+    //             }
+    //           }
+    //         }
 
-            pdu_buff -= e_head_size;
-            if (size > 1) {
-              pdu_buff -= size;
-            }
-          }
-        }
-      }
-      free(pdu_buff);
-    }
+    //         pdu_buff -= e_head_size;
+    //         if (size > 1) {
+    //           pdu_buff -= size;
+    //         }
+    //       }
+    //     }
+    //   }
+    //   free(pdu_buff);
+    // }
     /* PLMN ID extraction end*/
 
     {
