@@ -70,6 +70,8 @@
 #define ENB_CONFIG_STRING_TRACKING_AREA_CODE            "tracking_area_code"
 #define ENB_CONFIG_STRING_MOBILE_COUNTRY_CODE           "mobile_country_code"
 #define ENB_CONFIG_STRING_MOBILE_NETWORK_CODE           "mobile_network_code"
+#define ENB_CONFIG_STRING_PLMN_IDS                      "plmn_ids"
+#define ENB_CONFIG_STRING_MULTIPLE_OPERATOR_CN          "multiple_OCN"
 
 #define ENB_CONFIG_STRING_COMPONENT_CARRIERS                            "component_carriers"
 
@@ -286,7 +288,7 @@ void enb_config_display(void)
     } else {
       printf( "\tMNC:                \t%02"PRIu16":\n",enb_properties.properties[i]->mnc);
     }
-    
+
     for (j=0; j< enb_properties.properties[i]->nb_rrh_gw; j++) {
       if (enb_properties.properties[i]->rrh_gw_config[j].active == 1 ){
 	printf( "\n\tRRH GW %d config for eNB %u:\n\n", j, i);
@@ -495,6 +497,8 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
   config_setting_t *setting_srb1                  = NULL;
   config_setting_t *setting_mme_addresses         = NULL;
   config_setting_t *setting_mme_address           = NULL;
+  config_setting_t *plmn_ids                      = NULL;
+  config_setting_t *plmn_id                       = NULL;
   config_setting_t *setting_rrh_gws               = NULL;
   config_setting_t *setting_rrh_gw                = NULL;
   config_setting_t *setting_enb                   = NULL;
@@ -504,6 +508,7 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
   int               enb_properties_index          = 0;
   int               num_enbs                      = 0;
   int               num_mme_address               = 0;
+  int               num_plmn_ids                  = 0;
   int               num_rrh_gw                    = 0;
   int               num_otg_elements              = 0;
   int               num_component_carriers        = 0;
@@ -608,6 +613,7 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
   char*             ipv6                          = NULL;
   char*             active                        = NULL;
   char*             preference                    = NULL;
+  char*             multiple_ocn                  = NULL;
 
   char*             tr_preference                 = NULL;
   char*             rf_preference                 = NULL;
@@ -770,6 +776,60 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
                       "BAD MNC DIGIT LENGTH %d",
                       enb_properties.properties[i]->mnc_digit_length);
 
+          /* Multiple PLMN IDs support. */
+
+          enb_properties.properties[enb_properties_index]->multiple_ocn = 0;
+
+          if (config_setting_lookup_string(setting_enb, ENB_CONFIG_STRING_MULTIPLE_OPERATOR_CN, (const char **) &multiple_ocn)) {
+
+            if (strcmp(multiple_ocn, "True") == 0) {
+              enb_properties.properties[enb_properties_index]->multiple_ocn = 1;
+
+              plmn_ids = config_setting_get_member (setting_enb, ENB_CONFIG_STRING_PLMN_IDS);
+              num_plmn_ids = config_setting_length(plmn_ids);
+
+              if (num_plmn_ids > 6) {
+                AssertError (0, parse_errors ++,
+                               "Failed to parse eNB configuration file %s, %u th enb %u th plmn ids !\n",
+                               lib_config_file_name_pP, i, j);
+              }
+
+              enb_properties.properties[enb_properties_index]->nb_plmn_ids = 0;
+
+              for (j = 0; j < num_plmn_ids; j++) {
+                plmn_id = config_setting_get_elem(plmn_ids, j);
+
+                char* plmn_id_mnc = 0;
+                char* plmn_id_mcc = 0;
+
+                if (!(
+                       config_setting_lookup_string(plmn_id, ENB_CONFIG_STRING_MOBILE_COUNTRY_CODE, (const char **) &plmn_id_mcc)
+                       && config_setting_lookup_string(plmn_id, ENB_CONFIG_STRING_MOBILE_NETWORK_CODE, (const char **) &plmn_id_mnc)
+                     )
+                   ) {
+                  AssertError (0, parse_errors ++,
+                               "Failed to parse eNB configuration file %s, %u th enb %u th plmn ids!\n",
+                               lib_config_file_name_pP, i, j);
+                  enb_properties.properties[enb_properties_index]->multiple_ocn = 0;
+                  break;
+                }
+
+                enb_properties.properties[enb_properties_index]->nb_plmn_ids += 1;
+
+                enb_properties.properties[enb_properties_index]->plmn_ids[j].mcc = (uint16_t)atoi(plmn_id_mcc);
+                enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc = (uint16_t)atoi(plmn_id_mnc);
+                enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc_digit_length = strlen(plmn_id_mnc);
+                AssertFatal((enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc_digit_length == 2) ||
+                          (enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc_digit_length == 3),
+                          "BAD MNC DIGIT LENGTH %d",
+                          enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc_digit_length);
+                printf("MCC %d\n", enb_properties.properties[enb_properties_index]->plmn_ids[j].mcc);
+                printf("MNC %d\n", enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc);
+                printf("MNC digits %d\n", enb_properties.properties[enb_properties_index]->plmn_ids[j].mnc_digit_length);
+              }
+            }
+          }
+          /* Multiple PLMN IDs support. */
 
           // Parse optional physical parameters
 
@@ -2194,7 +2254,7 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
               enb_properties.properties[enb_properties_index]->mme_ip_address[j].ipv6 = 1;
             }
           }
-	  // RRH Config 
+	  // RRH Config
 	  setting_rrh_gws = config_setting_get_member (setting_enb, ENB_CONFIG_STRING_RRH_GW_CONFIG);
 	  if ( setting_rrh_gws != NULL) {
           num_rrh_gw     = config_setting_length(setting_rrh_gws);
@@ -2212,7 +2272,7 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
                    && config_setting_lookup_string(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_ACTIVE, (const char **)&active)
 		   && config_setting_lookup_string(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_TRANSPORT_PREFERENCE, (const char **)&tr_preference)
 		   && config_setting_lookup_string(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_RF_TARGET_PREFERENCE, (const char **)&rf_preference)
-		   && config_setting_lookup_int(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_IQ_TXSHIFT, &iq_txshift) 
+		   && config_setting_lookup_int(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_IQ_TXSHIFT, &iq_txshift)
 		   && config_setting_lookup_int(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_TX_SAMPLE_ADVANCE, &tx_sample_advance)
 		   && config_setting_lookup_int(setting_rrh_gw, ENB_CONFIG_STRING_RRH_GW_TX_SCHEDULING_ADVANCE, &tx_scheduling_advance)
                  )
@@ -2236,13 +2296,13 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
 
             if (strcmp(active, "yes") == 0) {
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].active = 1;
-            } 
+            }
 
             if (strcmp(tr_preference, "udp") == 0) {
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].udp = 1;
             } else if (strcmp(tr_preference, "raw") == 0) {
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].raw = 1;
-            } else {//if (strcmp(preference, "no") == 0) 
+            } else {//if (strcmp(preference, "no") == 0)
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].udp = 1;
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].raw = 1;
             }
@@ -2256,24 +2316,24 @@ const Enb_properties_array_t *enb_config_init(char* lib_config_file_name_pP)
             } else if (strcmp(rf_preference, "bladerf") == 0) {
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].bladerf = 1;
 	    } else if (strcmp(rf_preference, "bladerf") == 0) {
-              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].lmssdr = 1;	      
-            } else {//if (strcmp(preference, "no") == 0) 
+              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].lmssdr = 1;
+            } else {//if (strcmp(preference, "no") == 0)
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].exmimo = 1;
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].usrp_b200 = 1;
               enb_properties.properties[enb_properties_index]->rrh_gw_config[j].usrp_x300 = 1;
-              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].bladerf = 1;    
-              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].lmssdr = 1;    
+              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].bladerf = 1;
+              enb_properties.properties[enb_properties_index]->rrh_gw_config[j].lmssdr = 1;
 
             }
           }
 	  } else {
-	    enb_properties.properties[enb_properties_index]->nb_rrh_gw = 0;	    
+	    enb_properties.properties[enb_properties_index]->nb_rrh_gw = 0;
 	    enb_properties.properties[enb_properties_index]->rrh_gw_if_name = "none";
             enb_properties.properties[enb_properties_index]->rrh_gw_config[j].local_address  = "0.0.0.0";
             enb_properties.properties[enb_properties_index]->rrh_gw_config[j].remote_address = "0.0.0.0";
 	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].local_port= 0;
-	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].remote_port= 0;	    
-	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].active = 0;	    
+	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].remote_port= 0;
+	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].active = 0;
 	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].udp = 0;
 	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].raw = 0;
 	    enb_properties.properties[enb_properties_index]->rrh_gw_config[j].tx_scheduling_advance = 0;

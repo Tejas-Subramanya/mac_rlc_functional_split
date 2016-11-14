@@ -61,7 +61,7 @@
             }\
         } while (0);
 
-/** @defgroup _enb_app ENB APP 
+/** @defgroup _enb_app ENB APP
  * @ingroup _oai2
  * @{
  */
@@ -78,6 +78,15 @@ typedef struct mme_ip_address_s {
   char     *ipv6_address;
 } mme_ip_address_t;
 
+typedef struct config_plmn_id_s {
+  /* Mobile Country Code
+   * Mobile Network Code
+   */
+  uint16_t            mcc;
+  uint16_t            mnc;
+  uint8_t             mnc_digit_length;
+} config_plmn_id_t;
+
 typedef struct rrh_gw_config_s {
   unsigned  udp:1;
   unsigned  raw:1;
@@ -92,8 +101,8 @@ typedef struct rrh_gw_config_s {
   unsigned  exmimo:1;
   unsigned  usrp_b200:1;
   unsigned  usrp_x300:1;
-  unsigned  bladerf:1; 
-  unsigned  lmssdr:1;  
+  unsigned  bladerf:1;
+  unsigned  lmssdr:1;
 } rrh_gw_config_t;
 
 typedef struct Enb_properties_s {
@@ -210,6 +219,12 @@ typedef struct Enb_properties_s {
   uint8_t             nb_mme;
   /* List of MME to connect to */
   mme_ip_address_t    mme_ip_address[S1AP_MAX_NB_MME_IP_ADDRESS];
+
+  uint8_t             multiple_ocn;
+  /* Nb of PLMN IDs supported (MOCN) */
+  uint8_t             nb_plmn_ids;
+  /* List of PLMN IDs */
+  config_plmn_id_t    plmn_ids[6];
 
   int                 sctp_in_streams;
   int                 sctp_out_streams;
