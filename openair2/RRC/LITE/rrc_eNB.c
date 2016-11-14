@@ -4178,8 +4178,8 @@ rrc_eNB_decode_ccch(
         /* If RRC Connection Request is received from UE it means UE has already
           * acquired the SI information.
          */
-        ue_context_p->ue_context.Status = RRC_SI_RECEIVED;
-        uint32_t rnti = ue_context_p->ue_context.rnti;
+        // ue_context_p->ue_context.Status = RRC_SI_RECEIVED;
+        // uint32_t rnti = ue_context_p->ue_context.rnti;
       #endif /* EMAGE_AGENT */
       rrc_eNB_generate_RRCConnectionSetup(ctxt_pP, ue_context_p, CC_id);
       LOG_I(RRC, PROTOCOL_RRC_CTXT_UE_FMT"CALLING RLC CONFIG SRB1 (rbid %d)\n",
