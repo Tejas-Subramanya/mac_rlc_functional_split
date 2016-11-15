@@ -174,7 +174,7 @@ set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath -Wl,${CMAKE_CU
 # these changes are related to hardcoded path to include .h files
 add_definitions(-DCMAKER)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g -DMALLOC_CHECK_=3")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS} -g -DMALLOC_CHECK_=3 -O2") 
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS} -g -DMALLOC_CHECK_=3 -O2")
 
 
 set(GIT_BRANCH        "UNKNOWN")
@@ -956,7 +956,7 @@ add_library(SECU_CN ${SECU_CN_SRC})
 
 # Scheduler
 ################################"
-set(SCHED_SRC 
+set(SCHED_SRC
   ${OPENAIR1_DIR}/SCHED/phy_procedures_lte_eNb.c
   ${OPENAIR1_DIR}/SCHED/phy_procedures_lte_ue.c
   ${OPENAIR1_DIR}/SCHED/phy_procedures_lte_common.c
@@ -1679,7 +1679,7 @@ target_link_libraries (lte-softmodem -ldl
   -Wl,--end-group )
 
 target_link_libraries (lte-softmodem ${LIBXML2_LIBRARIES})
-target_link_libraries (lte-softmodem pthread m ${CONFIG_LIBRARIES} rt crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} sctp ${option_HW_lib} ${option_TP_lib} ${XFORMS_LIBRARIES} ) 
+target_link_libraries (lte-softmodem pthread m ${CONFIG_LIBRARIES} rt crypt ${CRYPTO_LIBRARIES} ${OPENSSL_LIBRARIES} ${NETTLE_LIBRARIES} sctp ${option_HW_lib} ${option_TP_lib} ${XFORMS_LIBRARIES} )
 target_link_libraries (lte-softmodem ${LIB_LMS_LIBRARIES})
 target_link_libraries (lte-softmodem ${T_LIB})
 if (${EMAGE_AGENT})

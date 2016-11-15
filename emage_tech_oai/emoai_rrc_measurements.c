@@ -1436,11 +1436,6 @@ int emoai_RRC_meas_reconf (
 		goto error;
 	}
 
-	/* No need to modify the DRB which is already established.
-	 * Do not modify DRB0.
-	*/
-	ue->ue_context.DRB_config_action[0] = CONFIG_ACTION_NULL;
-
 	if (measId_rem > 0) {
 		/* A measurement needs to be removed. */
 		/* In UE context, all the measurement ids are stored sequentially. */
@@ -1830,6 +1825,9 @@ int emoai_RRC_meas_reconf (
 		eNB->subframe,
 		DEFAULT_ENB_ID);
 
+	/* Set the flag indicating the reconfiguration of UE measurements. */
+	ue->ue_context.meas_reconfig_flag = 1;
+
 	size = do_RRCConnectionReconfiguration(
 					&emage_eNB_RRC_UE_ctxt,
 					buffer,
@@ -1839,10 +1837,10 @@ int emoai_RRC_meas_reconf (
 					(DRB_ToAddModList_t*)NULL,
 					(DRB_ToReleaseList_t*)NULL,
 					(struct SPS_Config*)NULL,
-#ifdef EXMIMO_IOT
-					NULL, NULL, NULL, NULL,NULL,
-#else
 					NULL,
+#ifdef EXMIMO_IOT
+					NULL, NULL, NULL,NULL,
+#else
 					mo_add_l,
 					mo_rem_l,
 					(ReportConfigToAddModList_t*)rc_add_l,

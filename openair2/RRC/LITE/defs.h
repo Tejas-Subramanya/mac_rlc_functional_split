@@ -283,7 +283,7 @@ typedef struct SRB_INFO_TABLE_ENTRY_s {
   SRB_INFO Srb_info;
   uint8_t Active;
   uint8_t Status;
-  uint32_t Next_check_frame; 
+  uint32_t Next_check_frame;
 } SRB_INFO_TABLE_ENTRY;
 
 typedef struct MEAS_REPORT_LIST_s {
@@ -307,7 +307,6 @@ typedef struct eNB_RRC_UE_s {
   DRB_ToAddModList_t*                DRB_configList;
   DRB_ToAddModList_t*                DRB_configList2[RRC_TRANSACTION_IDENTIFIER_NUMBER];
   uint8_t                            DRB_active[8];
-  uint8_t                            DRB_config_action[8];
   struct PhysicalConfigDedicated*    physicalConfigDedicated;
   struct SPS_Config*                 sps_Config;
   // MeasObjectToAddMod_t**              MeasObj;
@@ -331,6 +330,7 @@ typedef struct eNB_RRC_UE_s {
 
   char                                ue_imsi[16];
   char                                plmn_id[7];
+  int                                 meas_reconfig_flag;
 
 
 #if defined(ENABLE_SECURITY)
