@@ -363,7 +363,7 @@ int rrc_mac_remove_ue(module_id_t mod_idP,rnti_t rntiP)
   RA_TEMPLATE *RA_template;
   for (i=0;i<NB_RA_PROC_MAX;i++) {
     RA_template = (RA_TEMPLATE *)&eNB_mac_inst[mod_idP].common_channels[pCC_id].RA_template[i];
-    if ((RA_template->RA_active == TRUE) && 
+    if ((RA_template->RA_active == TRUE) &&
 	(RA_template->rnti == rntiP)){
       RA_template->RA_active=FALSE;
       RA_template->generate_rar=0;
@@ -1001,7 +1001,7 @@ void dump_CCE_table(int *CCE_table,const int nCCE,const unsigned short rnti,cons
 
   int nb_candidates = 0,i;
   unsigned int Yk;
-  
+
   printf("CCE 0: ");
   for (i=0;i<nCCE;i++) {
     printf("%1d.",CCE_table[i]);
@@ -1010,30 +1010,30 @@ void dump_CCE_table(int *CCE_table,const int nCCE,const unsigned short rnti,cons
   }
 
   Yk = (unsigned int)rnti;
-  
+
   for (i=0; i<=subframe; i++)
     Yk = (Yk*39827)%65537;
-  
+
   Yk = Yk % (nCCE/L);
-  
-  
+
+
   switch (L) {
   case 1:
   case 2:
     nb_candidates = 6;
     break;
-    
+
   case 4:
   case 8:
     nb_candidates = 2;
     break;
-    
+
   default:
     DevParam(L, nCCE, rnti);
     break;
   }
-  
-  
+
+
   printf("rnti %x, Yk*L = %d, nCCE %d (nCCE/L %d),nb_cand*L %d\n",rnti,Yk*L,nCCE,nCCE/L,nb_candidates*L);
 
 }

@@ -1078,15 +1078,15 @@ rrc_eNB_process_S1AP_DOWNLINK_NAS(
   uint32_t eNB_ue_s1ap_id;
   uint32_t length;
   uint8_t *buffer;
-  uint8_t srb_id; 
-  
+  uint8_t srb_id;
+
   struct rrc_eNB_ue_context_s* ue_context_p = NULL;
   protocol_ctxt_t              ctxt;
   ue_initial_id = S1AP_DOWNLINK_NAS (msg_p).ue_initial_id;
   eNB_ue_s1ap_id = S1AP_DOWNLINK_NAS (msg_p).eNB_ue_s1ap_id;
   ue_context_p = rrc_eNB_get_ue_context_from_s1ap_ids(instance, ue_initial_id, eNB_ue_s1ap_id);
   srb_id = ue_context_p->ue_context.Srb2.Srb_info.Srb_id;
-  
+
   LOG_I(RRC, "[eNB %d] Received %s: ue_initial_id %d, eNB_ue_s1ap_id %d\n",
         instance,
         msg_name,
@@ -1195,8 +1195,8 @@ rrc_eNB_process_S1AP_DOWNLINK_NAS(
 
     LOG_F(RRC,"\n");
 #endif
-    /* 
-     * switch UL or DL NAS message without RRC piggybacked to SRB2 if active. 
+    /*
+     * switch UL or DL NAS message without RRC piggybacked to SRB2 if active.
      */
     /* Transfer data to PDCP */
     rrc_data_req (
@@ -1207,7 +1207,7 @@ rrc_eNB_process_S1AP_DOWNLINK_NAS(
 		  length,
 		  buffer,
 		  PDCP_TRANSMISSION_MODE_CONTROL);
-    
+
     return (0);
   }
 }
@@ -1253,7 +1253,7 @@ int rrc_eNB_process_S1AP_INITIAL_CONTEXT_SETUP_REQ(MessageDef *msg_p, const char
 
       memset(&create_tunnel_req, 0 , sizeof(create_tunnel_req));
       ue_context_p->ue_context.nb_of_e_rabs = S1AP_INITIAL_CONTEXT_SETUP_REQ (msg_p).nb_of_e_rabs;
-     
+
       for (i = 0; i < ue_context_p->ue_context.nb_of_e_rabs; i++) {
         ue_context_p->ue_context.e_rab[i].status = E_RAB_STATUS_NEW;
         ue_context_p->ue_context.e_rab[i].param = S1AP_INITIAL_CONTEXT_SETUP_REQ (msg_p).e_rab_param[i];
@@ -1266,7 +1266,7 @@ int rrc_eNB_process_S1AP_INITIAL_CONTEXT_SETUP_REQ(MessageDef *msg_p, const char
                &S1AP_INITIAL_CONTEXT_SETUP_REQ (msg_p).e_rab_param[i].sgw_addr,
                sizeof(transport_layer_addr_t));
       }
-    
+
       create_tunnel_req.rnti       = ue_context_p->ue_context.rnti; // warning put zero above
       create_tunnel_req.num_tunnels    = i;
 
@@ -1277,7 +1277,7 @@ int rrc_eNB_process_S1AP_INITIAL_CONTEXT_SETUP_REQ(MessageDef *msg_p, const char
 
       rrc_eNB_process_GTPV1U_CREATE_TUNNEL_RESP(
           &ctxt,
-          &create_tunnel_resp); 
+          &create_tunnel_resp);
       ue_context_p->ue_context.setup_e_rabs=ue_context_p->ue_context.nb_of_e_rabs;
     }
 
@@ -1710,10 +1710,10 @@ int rrc_eNB_process_S1AP_E_RAB_SETUP_REQ(MessageDef *msg_p, const char *msg_name
 
       // keep the previous bearer
       // the index for the rec
-      for (i = 0; 
-	   i < nb_e_rabs_tosetup; 
+      for (i = 0;
+	   i < nb_e_rabs_tosetup;
 	   i++) {
-	if (ue_context_p->ue_context.e_rab[i+ue_context_p->ue_context.setup_e_rabs].status == E_RAB_STATUS_DONE) 
+	if (ue_context_p->ue_context.e_rab[i+ue_context_p->ue_context.setup_e_rabs].status == E_RAB_STATUS_DONE)
 	  LOG_W(RRC,"E-RAB already configured, reconfiguring\n");
         ue_context_p->ue_context.e_rab[i+ue_context_p->ue_context.setup_e_rabs].status = E_RAB_STATUS_NEW;
         ue_context_p->ue_context.e_rab[i+ue_context_p->ue_context.setup_e_rabs].param = S1AP_E_RAB_SETUP_REQ  (msg_p).e_rab_setup_params[i];
@@ -1725,18 +1725,18 @@ int rrc_eNB_process_S1AP_E_RAB_SETUP_REQ(MessageDef *msg_p, const char *msg_name
         memcpy(&create_tunnel_req.sgw_addr[i],
                & S1AP_E_RAB_SETUP_REQ (msg_p).e_rab_setup_params[i].sgw_addr,
                sizeof(transport_layer_addr_t));
-	
-	LOG_I(RRC,"E_RAB setup REQ: local index %d teid %u, eps id %d \n", 
+
+	LOG_I(RRC,"E_RAB setup REQ: local index %d teid %u, eps id %d \n",
 	      i+ue_context_p->ue_context.setup_e_rabs,
 	      create_tunnel_req.sgw_S1u_teid[i],
 	       create_tunnel_req.eps_bearer_id[i] );
       }
       ue_context_p->ue_context.nb_of_e_rabs=nb_e_rabs_tosetup;
-     
-     
+
+
       create_tunnel_req.rnti       = ue_context_p->ue_context.rnti; // warning put zero above
       create_tunnel_req.num_tunnels    = i;
-      
+
       // NN: not sure if we should create a new tunnel: need to check teid, etc.
       gtpv1u_create_s1u_tunnel(
         instance,
@@ -1757,7 +1757,7 @@ int rrc_eNB_process_S1AP_E_RAB_SETUP_REQ(MessageDef *msg_p, const char *msg_name
     }
 
     rrc_eNB_generate_dedicatedRRCConnectionReconfiguration(&ctxt, ue_context_p, 0);
-							 
+
     return (0);
   }
 }
@@ -1765,31 +1765,31 @@ int rrc_eNB_process_S1AP_E_RAB_SETUP_REQ(MessageDef *msg_p, const char *msg_name
 /*NN: careful about the typcast of xid (long -> uint8_t*/
 int rrc_eNB_send_S1AP_E_RAB_SETUP_RESP(const protocol_ctxt_t* const ctxt_pP,
 				   rrc_eNB_ue_context_t*          const ue_context_pP,
-				   uint8_t xid ){  
+				   uint8_t xid ){
 
   MessageDef      *msg_p         = NULL;
   int e_rab;
   int e_rabs_done = 0;
   int e_rabs_failed = 0;
-    
+
   msg_p = itti_alloc_new_message (TASK_RRC_ENB, S1AP_E_RAB_SETUP_RESP);
   S1AP_E_RAB_SETUP_RESP (msg_p).eNB_ue_s1ap_id = ue_context_pP->ue_context.eNB_ue_s1ap_id;
- 
+
   for (e_rab = 0; e_rab <  ue_context_pP->ue_context.setup_e_rabs ; e_rab++) {
 
-    /* only respond to the corresponding transaction */ 
+    /* only respond to the corresponding transaction */
     //if (((xid+1)%4) == ue_context_pP->ue_context.e_rab[e_rab].xid) {
     if (xid == ue_context_pP->ue_context.e_rab[e_rab].xid) {
-      
+
       if (ue_context_pP->ue_context.e_rab[e_rab].status == E_RAB_STATUS_DONE) {
-     
+
 	S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].e_rab_id = ue_context_pP->ue_context.e_rab[e_rab].param.e_rab_id;
 	// TODO add other information from S1-U when it will be integrated
 	S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].gtp_teid = ue_context_pP->ue_context.enb_gtp_teid[e_rab];
 	S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].eNB_addr = ue_context_pP->ue_context.enb_gtp_addrs[e_rab];
 	//S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rab].eNB_addr.length += 4;
 	ue_context_pP->ue_context.e_rab[e_rab].status = E_RAB_STATUS_ESTABLISHED;
-	
+
 	LOG_I (RRC,"enb_gtp_addr (msg index %d, e_rab index %d, status %d, xid %d): nb_of_e_rabs %d,  e_rab_id %d, teid: %u, addr: %d.%d.%d.%d \n ",
 	       e_rabs_done,  e_rab, ue_context_pP->ue_context.e_rab[e_rab].status, xid,
 	       ue_context_pP->ue_context.nb_of_e_rabs,
@@ -1799,9 +1799,9 @@ int rrc_eNB_send_S1AP_E_RAB_SETUP_RESP(const protocol_ctxt_t* const ctxt_pP,
 	       S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].eNB_addr.buffer[1],
 	       S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].eNB_addr.buffer[2],
 	       S1AP_E_RAB_SETUP_RESP (msg_p).e_rabs[e_rabs_done].eNB_addr.buffer[3]);
-	
+
 	e_rabs_done++;
-      } else if ((ue_context_pP->ue_context.e_rab[e_rab].status == E_RAB_STATUS_NEW)  || 
+      } else if ((ue_context_pP->ue_context.e_rab[e_rab].status == E_RAB_STATUS_NEW)  ||
 		 (ue_context_pP->ue_context.e_rab[e_rab].status == E_RAB_STATUS_ESTABLISHED)){
 	LOG_D (RRC,"E-RAB is NEW or already ESTABLISHED\n");
       }else { /* to be improved */
@@ -1810,12 +1810,12 @@ int rrc_eNB_send_S1AP_E_RAB_SETUP_RESP(const protocol_ctxt_t* const ctxt_pP,
 	e_rabs_failed++;
 	// TODO add cause when it will be integrated
       }
-      
-      
+
+
       S1AP_E_RAB_SETUP_RESP (msg_p).nb_of_e_rabs = e_rabs_done;
       S1AP_E_RAB_SETUP_RESP (msg_p).nb_of_e_rabs_failed = e_rabs_failed;
-      // NN: add conditions for e_rabs_failed 
-      if ((e_rabs_done > 0) ){  
+      // NN: add conditions for e_rabs_failed
+      if ((e_rabs_done > 0) ){
 
 	LOG_I(RRC,"S1AP_E_RAB_SETUP_RESP: sending the message: nb_of_erabs %d, total e_rabs %d, index %d\n",
 	      ue_context_pP->ue_context.nb_of_e_rabs, ue_context_pP->ue_context.setup_e_rabs, e_rab);
@@ -1829,19 +1829,19 @@ int rrc_eNB_send_S1AP_E_RAB_SETUP_RESP(const protocol_ctxt_t* const ctxt_pP,
 			   ue_context_pP->ue_id_rnti,
 			   S1AP_E_RAB_SETUP_RESP (msg_p).eNB_ue_s1ap_id,
 			   e_rabs_done, e_rabs_failed);
-	
-	
+
+
 	itti_send_msg_to_task (TASK_S1AP, ctxt_pP->instance, msg_p);
       }
 
     } else {
-      /*debug info for the xid */ 
+      /*debug info for the xid */
       LOG_D(RRC,"xid does not corresponds  (context e_rab index %d, status %d, xid %d/%d) \n ",
       	     e_rab, ue_context_pP->ue_context.e_rab[e_rab].status, xid, ue_context_pP->ue_context.e_rab[e_rab].xid);
     }
-    
+
   }
-  
+
   return 0;
 }
 
