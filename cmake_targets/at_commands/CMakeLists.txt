@@ -155,7 +155,7 @@ set(secu_cn_SRC
   ${OPENAIR3_DIR}/SECU/nas_stream_eia2.c
   )
 add_library(secu_cn ${secu_cn_SRC})
-target_include_directories(secu_cn PRIVATE 
+target_include_directories(secu_cn PRIVATE
                             ${OPENAIR_DIR}/common/utils/itti
                             ${OPENAIR_DIR}/openair2/COMMON
                             ${OPENAIR3_DIR}/UTILS
@@ -306,7 +306,7 @@ set(emm_SRC
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/TrackingAreaUpdateReject.c
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/TrackingAreaUpdateRequest.c
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/UplinkNasTransport.c
-    
+
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/emm_as.c
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/EmmDeregisteredAttachNeeded.c
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/EmmDeregisteredAttemptingToAttach.c
@@ -335,7 +335,7 @@ set(emm_SRC
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/emm_send.c
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/EmmServiceRequestInitiated.c
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/EmmTrackingAreaUpdatingInitiated.c
-    
+
 )
 
 set(emm_HDR
@@ -344,7 +344,7 @@ set(emm_HDR
     ${OPENAIR_NAS_DIR}/UE/EMM/emm_proc.h
     ${OPENAIR_NAS_DIR}/UE/EMM/IdleMode.h
     ${OPENAIR_NAS_DIR}/UE/EMM/LowerLayer.h
-    
+
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/AttachAccept.h
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/AttachComplete.h
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/AttachReject.h
@@ -377,7 +377,7 @@ set(emm_HDR
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/TrackingAreaUpdateReject.h
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/TrackingAreaUpdateRequest.h
     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG/UplinkNasTransport.h
-    
+
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/emm_asDef.h
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/emm_as.h
     ${OPENAIR_NAS_DIR}/UE/EMM/SAP/emm_esmDef.h
@@ -393,11 +393,11 @@ set(emm_HDR
 
 add_library(emm ${emm_SRC} ${emm_HDR})
 
-target_include_directories(emm PRIVATE 
-                     ${OPENAIR_DIR}/common/utils/msc 
+target_include_directories(emm PRIVATE
+                     ${OPENAIR_DIR}/common/utils/msc
                      ${OPENAIR_DIR}/common/utils
                      ${OPENAIR_DIR}/openair2/COMMON
-                     ${OPENAIR_NAS_DIR}/UE/API/USIM 
+                     ${OPENAIR_NAS_DIR}/UE/API/USIM
                      ${OPENAIR_NAS_DIR}/UE/EMM
                      ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG
                      ${OPENAIR_NAS_DIR}/UE/EMM/SAP
@@ -421,7 +421,7 @@ set(esm_SRC
     ${OPENAIR_NAS_DIR}/UE/ESM/EsmStatusHdl.c
     ${OPENAIR_NAS_DIR}/UE/ESM/PdnConnectivity.c
     ${OPENAIR_NAS_DIR}/UE/ESM/PdnDisconnect.c
-    
+
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/ActivateDedicatedEpsBearerContextAccept.c
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/ActivateDedicatedEpsBearerContextReject.c
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/ActivateDedicatedEpsBearerContextRequest.c
@@ -445,7 +445,7 @@ set(esm_SRC
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/PdnConnectivityRequest.c
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/PdnDisconnectReject.c
     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG/PdnDisconnectRequest.c
-    
+
     ${OPENAIR_NAS_DIR}/UE/ESM/SAP/esm_recv.c
     ${OPENAIR_NAS_DIR}/UE/ESM/SAP/esm_sap.c
     ${OPENAIR_NAS_DIR}/UE/ESM/SAP/esm_send.c
@@ -485,8 +485,8 @@ set(esm_HDR
 
 add_library(esm ${esm_SRC} ${esm_HDR})
 
-target_include_directories(esm PRIVATE 
-                     ${OPENAIR_NAS_DIR}/UE/API/USER 
+target_include_directories(esm PRIVATE
+                     ${OPENAIR_NAS_DIR}/UE/API/USER
                      ${OPENAIR_NAS_DIR}/UE/ESM
                      ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG
                      ${OPENAIR_NAS_DIR}/UE/ESM/SAP
@@ -660,8 +660,8 @@ set(ies_HDR
 
 add_library(ies ${ies_SRC} ${ies_HDR})
 
-target_include_directories(ies PRIVATE 
-                     ${OPENAIR_NAS_DIR}/COMMON/IES 
+target_include_directories(ies PRIVATE
+                     ${OPENAIR_NAS_DIR}/COMMON/IES
 )
 
 
@@ -669,40 +669,40 @@ target_include_directories(ies PRIVATE
 ################################################################################
 # EXECUTABLE at_nas_ue
 ################################################################################
-include_directories( 
-                     ${OPENAIR_DIR}/common/utils/msc 
-                     ${OPENAIR3_DIR}/COMMON 
-                     ${OPENAIR3_DIR}/SECU 
-                     ${OPENAIR_NAS_DIR}/src 
-                     ${OPENAIR_NAS_DIR}/COMMON 
-                     ${OPENAIR_NAS_DIR}/COMMON/API/NETWORK 
-                     ${OPENAIR_NAS_DIR}/UE/API/USER 
-                     ${OPENAIR_NAS_DIR}/UE/EMM 
-                     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG 
-                     ${OPENAIR_NAS_DIR}/UE/EMM/SAP 
-                     ${OPENAIR_NAS_DIR}/UE/ESM 
-                     ${OPENAIR_NAS_DIR}/UE/ESM/SAP 
-                     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG 
-                     ${OPENAIR_NAS_DIR}/COMMON/IES 
+include_directories(
+                     ${OPENAIR_DIR}/common/utils/msc
+                     ${OPENAIR3_DIR}/COMMON
+                     ${OPENAIR3_DIR}/SECU
+                     ${OPENAIR_NAS_DIR}/src
+                     ${OPENAIR_NAS_DIR}/COMMON
+                     ${OPENAIR_NAS_DIR}/COMMON/API/NETWORK
+                     ${OPENAIR_NAS_DIR}/UE/API/USER
+                     ${OPENAIR_NAS_DIR}/UE/EMM
+                     ${OPENAIR_NAS_DIR}/COMMON/EMM/MSG
+                     ${OPENAIR_NAS_DIR}/UE/EMM/SAP
+                     ${OPENAIR_NAS_DIR}/UE/ESM
+                     ${OPENAIR_NAS_DIR}/UE/ESM/SAP
+                     ${OPENAIR_NAS_DIR}/COMMON/ESM/MSG
+                     ${OPENAIR_NAS_DIR}/COMMON/IES
                      ${OPENAIR_NAS_DIR}/COMMON/UTIL )
-                     
-ADD_EXECUTABLE(at_nas_ue  ${OPENAIR_NAS_DIR}/UE/UEprocess.c 
-                          ${OPENAIR_NAS_DIR}/UE/nas_network.c  
+
+ADD_EXECUTABLE(at_nas_ue  ${OPENAIR_NAS_DIR}/UE/UEprocess.c
+                          ${OPENAIR_NAS_DIR}/UE/nas_network.c
                           ${OPENAIR_NAS_DIR}/UE/nas_parser.c
-                          ${OPENAIR_NAS_DIR}/UE/nas_proc.c  
-                          ${OPENAIR_NAS_DIR}/UE/nas_user.c  
+                          ${OPENAIR_NAS_DIR}/UE/nas_proc.c
+                          ${OPENAIR_NAS_DIR}/UE/nas_user.c
                           )
-                          
-target_link_libraries (at_nas_ue 
-                       -Wl,-whole-archive 
+
+target_link_libraries (at_nas_ue
+                       -Wl,-whole-archive
                        api_network api_user api_usim emm esm ies util secu_cn
                        -Wl,-no-whole-archive
-                       ${NETTLE_LIBRARIES} 
-                       ${OPENSSL_LIBRARIES} 
+                       ${NETTLE_LIBRARIES}
+                       ${OPENSSL_LIBRARIES}
                        ${CMAKE_THREAD_LIBS_INIT} m )
 
 
-                
+
 
 
 
