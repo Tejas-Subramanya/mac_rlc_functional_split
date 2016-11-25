@@ -21,7 +21,7 @@
 
 /*! \file s1ap_eNB_nas_procedures.c
  * \brief S1AP eNb NAS procedure handler
- * \author  S. Roux and Navid Nikaein 
+ * \author  S. Roux and Navid Nikaein
  * \date 2010 - 2015
  * \email: navid.nikaein@eurecom.fr
  * \version 1.0
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "assertions.h"
 #include "conversions.h"
@@ -131,8 +132,9 @@ int s1ap_eNB_handle_nas_first_req(
   do {
     struct s1ap_eNB_ue_context_s *collision_p;
 
-    /* Peek a random value for the eNB_ue_s1ap_id */
-    ue_desc_p->eNB_ue_s1ap_id = (random() + random()) & 0x00ffffff;
+    /* Pick a random value for the eNB_ue_s1ap_id */
+    srand(time(NULL));
+    ue_desc_p->eNB_ue_s1ap_id = (rand()) & 0x00ffffff;
 
     if ((collision_p = RB_INSERT(s1ap_ue_map, &instance_p->s1ap_ue_head, ue_desc_p))
         == NULL) {
@@ -579,7 +581,7 @@ int s1ap_eNB_initial_ctxt_resp(
     new_item->transportLayerAddress.size = initial_ctxt_resp_p->e_rabs[i].eNB_addr.length;
     new_item->transportLayerAddress.bits_unused = 0;
 
-    S1AP_DEBUG("initial_ctxt_resp_p: e_rab ID %d, enb_addr %d.%d.%d.%d, SIZE %d \n", 
+    S1AP_DEBUG("initial_ctxt_resp_p: e_rab ID %d, enb_addr %d.%d.%d.%d, SIZE %d \n",
 	      new_item->e_RAB_ID,
 	      new_item->transportLayerAddress.buf[0],
 	      new_item->transportLayerAddress.buf[1],
@@ -697,7 +699,7 @@ int s1ap_eNB_ue_capabilities(instance_t instance,
 }
 
 //------------------------------------------------------------------------------
-int s1ap_eNB_e_rab_setup_resp(instance_t instance, 
+int s1ap_eNB_e_rab_setup_resp(instance_t instance,
 			      s1ap_e_rab_setup_resp_t *e_rab_setup_resp_p)
 //------------------------------------------------------------------------------
 {
@@ -705,7 +707,7 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
   struct s1ap_eNB_ue_context_s *ue_context_p        = NULL;
 
   S1ap_E_RABSetupResponseIEs_t  *initial_ies_p  = NULL;
- 
+
   s1ap_message  message;
 
   uint8_t  *buffer  = NULL;
@@ -737,7 +739,7 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
               e_rab_setup_resp_p->eNB_ue_s1ap_id, ue_context_p->ue_state);
     return -1;
   }
- 
+
   /* Prepare the S1AP message to encode */
   memset(&message, 0, sizeof(s1ap_message));
 
@@ -746,27 +748,27 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
   message.criticality   = S1ap_Criticality_reject;
 
   initial_ies_p = &message.msg.s1ap_E_RABSetupResponseIEs;
-  
+
   initial_ies_p->eNB_UE_S1AP_ID = e_rab_setup_resp_p->eNB_ue_s1ap_id;
   initial_ies_p->mme_ue_s1ap_id = ue_context_p->mme_ue_s1ap_id;
-  
+
   if ( e_rab_setup_resp_p->nb_of_e_rabs >= 1 )
-    initial_ies_p->presenceMask |= S1AP_E_RABSETUPRESPONSEIES_E_RABSETUPLISTBEARERSURES_PRESENT; 
-  
-  for (i = 0; i < e_rab_setup_resp_p->nb_of_e_rabs; i++) { 
+    initial_ies_p->presenceMask |= S1AP_E_RABSETUPRESPONSEIES_E_RABSETUPLISTBEARERSURES_PRESENT;
+
+  for (i = 0; i < e_rab_setup_resp_p->nb_of_e_rabs; i++) {
     S1ap_E_RABSetupItemBearerSURes_t *new_item;
 
     new_item = calloc(1, sizeof(S1ap_E_RABSetupItemBearerSURes_t));
 
     new_item->e_RAB_ID = e_rab_setup_resp_p->e_rabs[i].e_rab_id;
     GTP_TEID_TO_ASN1(e_rab_setup_resp_p->e_rabs[i].gtp_teid, &new_item->gTP_TEID);
-        
+
     /*
-    new_item->transportLayerAddress.buf = MALLOC(e_rab_setup_resp_p->e_rabs[i].eNB_addr.length);  
-    memcpy (new_item->transportLayerAddress.buf, 
+    new_item->transportLayerAddress.buf = MALLOC(e_rab_setup_resp_p->e_rabs[i].eNB_addr.length);
+    memcpy (new_item->transportLayerAddress.buf,
 	    e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer,
 	    e_rab_setup_resp_p->e_rabs[i].eNB_addr.length);
-    
+
     */
     /*
       new_item->transportLayerAddress.buf[0] = e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer[0];
@@ -774,11 +776,11 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
     new_item->transportLayerAddress.buf[2] = e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer[2];
     new_item->transportLayerAddress.buf[3] = e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer[3];
     */
-    new_item->transportLayerAddress.buf = e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer; 
+    new_item->transportLayerAddress.buf = e_rab_setup_resp_p->e_rabs[i].eNB_addr.buffer;
     new_item->transportLayerAddress.size = e_rab_setup_resp_p->e_rabs[i].eNB_addr.length;
     new_item->transportLayerAddress.bits_unused = 0;
-    
-    S1AP_DEBUG("e_rab_setup_resp: e_rab ID %d, teid %u, enb_addr %d.%d.%d.%d, SIZE %d\n", 
+
+    S1AP_DEBUG("e_rab_setup_resp: e_rab ID %d, teid %u, enb_addr %d.%d.%d.%d, SIZE %d\n",
 	       new_item->e_RAB_ID,
 	       e_rab_setup_resp_p->e_rabs[i].gtp_teid,
 	       new_item->transportLayerAddress.buf[0],
@@ -786,7 +788,7 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
 	       new_item->transportLayerAddress.buf[2],
 	       new_item->transportLayerAddress.buf[3],
 	       new_item->transportLayerAddress.size);
-    
+
     S1ap_IE_t *ie = s1ap_new_ie(S1ap_ProtocolIE_ID_id_E_RABSetupItemBearerSURes,
 				S1ap_Criticality_ignore,
 				&asn_DEF_S1ap_E_RABSetupItemBearerSURes,
@@ -800,7 +802,7 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
     ASN_SEQUENCE_ADD(&initial_ies_p->e_RABSetupListBearerSURes.s1ap_E_RABSetupItemBearerSURes,
                      ie);
   }
- 
+
   /* S1ap_E_RABSetupListBearerSURes_t  e_RABSetupListBearerSURes;
   memset(&e_RABSetupListBearerSURes, 0, sizeof(S1ap_E_RABSetupListBearerSURes_t));
   if (s1ap_encode_s1ap_e_rabsetuplistbearersures(&e_RABSetupListBearerSURes, &initial_ies_p->e_RABSetupListBearerSURes.s1ap_E_RABSetupItemBearerSURes) < 0 )
@@ -814,8 +816,8 @@ int s1ap_eNB_e_rab_setup_resp(instance_t instance,
     return -1;
   }
 
- 
-  
+
+
   MSC_LOG_TX_MESSAGE(
     MSC_S1AP_ENB,
     MSC_S1AP_MME,
