@@ -328,9 +328,9 @@ typedef struct eNB_RRC_UE_s {
   /* Information from UE RRC UECapabilityEnquiry */
   UE_EUTRA_Capability_t              *UE_EUTRA_Capability;
 
-  char                                ue_imsi[16];
-  char                                plmn_id[7];
-  int                                 meas_reconfig_flag;
+  uint64_t                           ue_imsi;
+  uint32_t                           plmn_id;
+  int                                meas_reconfig_flag;
 
 
 #if defined(ENABLE_SECURITY)
