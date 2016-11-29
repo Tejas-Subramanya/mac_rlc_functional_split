@@ -176,13 +176,13 @@ int emm_recv_attach_accept(attach_accept_msg *msg, int *emm_cause)
   tai_t tai[n_tais];
 
   for (i = 0; i < n_tais; i++) {
-    tai[i].plmn.MCCdigit1 = msg->tailist.mccdigit1;
-    tai[i].plmn.MCCdigit2 = msg->tailist.mccdigit2;
-    tai[i].plmn.MCCdigit3 = msg->tailist.mccdigit3;
-    tai[i].plmn.MNCdigit1 = msg->tailist.mncdigit1;
-    tai[i].plmn.MNCdigit2 = msg->tailist.mncdigit2;
-    tai[i].plmn.MNCdigit3 = msg->tailist.mncdigit3;
-    tai[i].tac = msg->tailist.tac + i;
+    tai[i].plmn.MCCdigit1 = msg->tailist.mccdigit1[i];
+    tai[i].plmn.MCCdigit2 = msg->tailist.mccdigit2[i];
+    tai[i].plmn.MCCdigit3 = msg->tailist.mccdigit3[i];
+    tai[i].plmn.MNCdigit1 = msg->tailist.mncdigit1[i];
+    tai[i].plmn.MNCdigit2 = msg->tailist.mncdigit2[i];
+    tai[i].plmn.MNCdigit3 = msg->tailist.mncdigit3[i];
+    tai[i].tac = msg->tailist.tac[i] + i;
   }
 
   /* Get the GUTI */
