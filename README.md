@@ -20,7 +20,7 @@ This repository is a fork of the EURECOM's OpenAirInterface with the EmPOWER eNB
 The EmPOWER eNB Agent is released under the Apache License, Version 2.0.
 
 The OpenAirInterface is released under the OpenAirInterface Software Alliance license.
- 
+
 ### Pre-requisites:
 
  * Linux standard build suite (GCC, LD, AR, etc...)
@@ -33,7 +33,7 @@ The OpenAirInterface is released under the OpenAirInterface Software Alliance li
 
 ### Testbed
 
-This software has been developed and tested on Linux, Ubuntu 14.04 LTS with 3.19.8-031908-lowlatency and 4.8.0-040800-lowlatency kernel. Our tested consists of OAI eNB, EPC and HSS running on a single host. But, the process is similar for environment with OAI EPC and HSS on a different host than the OAI eNB.
+This software has been developed and tested on Linux, Ubuntu 14.04 LTS with 3.19.8-031908-lowlatency and 4.8.1-040801-lowlatency kernel. Our tested consists of empower-openairinterface eNB, EPC and HSS running on a single host. But, the process is similar for environment with OAI EPC and HSS on a different host than the empower-openairinterface eNB.
 
 Hardware:
  * Laptop with Intel® Core™ i7-5600U CPU @ 2.60GHz × 4
@@ -42,8 +42,9 @@ Hardware:
  * Nexus 5 with sysmoUSIM-SJS1 SIM
 
 Software:
- * Latest OAI eNB code from `develop` branch
- * Latest Openair-cn code from tag `v0.3.2`
+ * Latest empower-openairinterface eNB code from `emage` branch
+ * Latest Openair-cn code from `develop` branch
+ * Latest empower-enb-agent code from `master` branch
  * protoc (Version 3.1.0)
  * protobuf-c (Version 1.2.1)
 
