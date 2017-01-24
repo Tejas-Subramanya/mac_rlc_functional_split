@@ -888,7 +888,7 @@ if (${SPLIT_MAC_RLC_CU})
   include_directories (${OAI_SPLIT_DIR})
   include_directories (${OAI_SPLIT_DIR}/mac-rlc/cu)
   
-  add_library(SPLIT_MAC_RCL_LCU_IB ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c)
+  add_library(SPLIT_MAC_RCL_CU_LIB ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c)
 
   set(SPLIT_LIB SPLIT_MAC_RCL_CU_LIB)
 
@@ -1722,10 +1722,18 @@ target_link_libraries (lte-softmodem ${T_LIB})
 if (${EMAGE_AGENT})
   target_link_libraries (lte-softmodem ${AGENT_WRAP_LIB} ${AGENT_PROTO_LIB} ${PROTOBUF_LIB})
 endif (${EMAGE_AGENT})
-if (${SPLIT_MAC_RLC})
-  target_link_libraries (lte-softmodem ${SPLIT_LIB})
-endif (${SPLIT_MAC_RLC})
 
+#################################
+# Split options.                #
+#################################
+
+if (${SPLIT_MAC_RLC_CU})
+  target_link_libraries (lte-softmodem ${SPLIT_LIB})
+endif (${SPLIT_MAC_RLC_CU})
+
+if (${SPLIT_MAC_RLC_DU})
+  target_link_libraries (lte-softmodem ${SPLIT_LIB})
+endif (${SPLIT_MAC_RLC_DU})
 
 # lte-softmodem-nos1 is both eNB and UE implementation
 ###################################################
