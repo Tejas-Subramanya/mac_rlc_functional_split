@@ -349,6 +349,23 @@ int logInit (void)
   g_log->log_component[LOCALIZE].fd = 0;
   g_log->log_component[LOCALIZE].filelog = 0;
   g_log->log_component[LOCALIZE].filelog_name = "/tmp/localize.log";
+
+  g_log->log_component[SPLIT_MACRLC_CU].name = "SPLIT_MACRLC_CU";
+  g_log->log_component[SPLIT_MACRLC_CU].level = LOG_EMERG;
+  g_log->log_component[SPLIT_MACRLC_CU].flag =  LOG_MED;
+  g_log->log_component[SPLIT_MACRLC_CU].interval =  1;
+  g_log->log_component[SPLIT_MACRLC_CU].fd = 0;
+  g_log->log_component[SPLIT_MACRLC_CU].filelog = 0;
+  g_log->log_component[SPLIT_MACRLC_CU].filelog_name = "/tmp/split_macrlc_cu.log";
+
+  g_log->log_component[SPLIT_MACRLC_DU].name = "SPLIT_MACRLC_DU";
+  g_log->log_component[SPLIT_MACRLC_DU].level = LOG_EMERG;
+  g_log->log_component[SPLIT_MACRLC_DU].flag =  LOG_MED;
+  g_log->log_component[SPLIT_MACRLC_DU].interval =  1;
+  g_log->log_component[SPLIT_MACRLC_DU].fd = 0;
+  g_log->log_component[SPLIT_MACRLC_DU].filelog = 0;
+  g_log->log_component[SPLIT_MACRLC_DU].filelog_name = "/tmp/split_macrlc_du.log";
+
 #endif // ! defined(CN_BUILD)
 
   g_log->log_component[NAS].name = "NAS";
