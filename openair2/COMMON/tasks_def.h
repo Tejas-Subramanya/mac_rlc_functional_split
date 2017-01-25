@@ -55,7 +55,12 @@ TASK_DEF(TASK_X2AP,     TASK_PRIORITY_MED,          200)
 TASK_DEF(TASK_SCTP,     TASK_PRIORITY_MED,          200)
 ///   eNB APP task
 TASK_DEF(TASK_ENB_APP,  TASK_PRIORITY_MED,          200)
+// MAC-RLC functional split tasks
+TASK_DEF(TASK_SPLIT_MACRLC_CU, TASK_PRIORITY_MED,           200)
+TASK_DEF(TASK_SPLIT_MACRLC_DU, TASK_PRIORITY_MED,           200)
 
+
+  
 // UE tasks and sub-tasks:
 //// Layer 2 and Layer 1 sub-tasks
 SUB_TASK_DEF(TASK_L2L1,     TASK_PHY_UE,                200)

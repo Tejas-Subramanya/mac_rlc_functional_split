@@ -125,6 +125,25 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #   endif
     }
+
+#     if defined(SPLIT_MAC_RLC_CU)
+    if (enb_nb > 0) {
+      if (itti_create_task (TASK_SPLIT_MACRLC_CU, split_macrlc_cu_task, NULL) < 0) {
+        LOG_E(SPLIT_MAC_RLC_CU, "Create task for SPLIT MACRLC CU failed\n");
+        return -1;
+         }
+      }
+#     endif 
+
+
+#     if defined(SPLIT_MAC_RLC_DU)
+    if (enb_nb > 0) {
+      if (itti_create_task (TASK_SPLIT_MACRLC_DU, split_macrlc_du_task, NULL) < 0) {
+        LOG_E(SPLIT_MAC_RLC_DU, "Create task for SPLIT MACRLC dU failed\n");
+        return -1;
+         }
+      }
+#     endif 
   }
 # endif // openair2: NN: should be openair3
 
