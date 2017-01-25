@@ -621,19 +621,19 @@ add_boolean_option(MESSAGE_CHART_GENERATOR_RLC_MAC False "trace RLC-MAC exchange
 add_boolean_option(MESSAGE_CHART_GENERATOR_PHY     False "trace some PHY exchanges in sequence diagrams")
 
 add_boolean_option(ENB_AGENT                   True         "enable eNB agent to inteface with a SDN contrller")
-<<<<<<< Updated upstream
+
 add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
 
 ##########################
 # Split options
 ##########################
 
-add_boolean_option(SPLIT_MAC_RLC_CU        False "enable the split mechanism between MAC and RLC at CU side")
+add_boolean_option(SPLIT_MAC_RLC_CU        True "enable the split mechanism between MAC and RLC at CU side")
 add_boolean_option(SPLIT_MAC_RLC_DU        False "enable the split mechanism between MAC and RLC at DU side")
 
-=======
+
 add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
->>>>>>> Stashed changes
+
 ########################
 # Include order
 ##########################

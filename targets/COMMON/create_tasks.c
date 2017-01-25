@@ -37,6 +37,14 @@
 #     include "lteRALenb.h"
 #   endif
 #   include "RRC/LITE/defs.h"
+
+#   if defined(SPLIT_MAC_RLC_CU)
+#     include "split_macrlc_cu_task.h"
+#   endif
+
+#   if defined(SPLIT_MAC_RLC_DU)
+#     include "split_macrlc_du_task.h"
+#   endif
 # endif
 # include "enb_app.h"
 
@@ -128,7 +136,7 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #     if defined(SPLIT_MAC_RLC_CU)
     if (enb_nb > 0) {
-      if (itti_create_task (TASK_SPLIT_MACRLC_CU, split_macrlc_cu_task, NULL) < 0) {
+      if (itti_create_task (TASK_SPLIT_MACRLC_CU, udp_rlc_cu_task, NULL) < 0) {
         LOG_E(SPLIT_MAC_RLC_CU, "Create task for SPLIT MACRLC CU failed\n");
         return -1;
          }
@@ -138,8 +146,8 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #     if defined(SPLIT_MAC_RLC_DU)
     if (enb_nb > 0) {
-      if (itti_create_task (TASK_SPLIT_MACRLC_DU, split_macrlc_du_task, NULL) < 0) {
-        LOG_E(SPLIT_MAC_RLC_DU, "Create task for SPLIT MACRLC dU failed\n");
+      if (itti_create_task (TASK_SPLIT_MACRLC_DU, udp_rlc_du_task, NULL) < 0) {
+        LOG_E(SPLIT_MAC_RLC_DU, "Create task for SPLIT MACRLC DU failed\n");
         return -1;
          }
       }
