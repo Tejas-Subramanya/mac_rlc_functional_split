@@ -621,7 +621,8 @@ add_boolean_option(MESSAGE_CHART_GENERATOR_RLC_MAC False "trace RLC-MAC exchange
 add_boolean_option(MESSAGE_CHART_GENERATOR_PHY     False "trace some PHY exchanges in sequence diagrams")
 
 add_boolean_option(ENB_AGENT                   True         "enable eNB agent to inteface with a SDN contrller")
-add_boolean_option(EMAGE_AGENT                 True         "enable EMAge agent to inteface with a controller")
+<<<<<<< Updated upstream
+add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
 
 ##########################
 # Split options
@@ -630,6 +631,9 @@ add_boolean_option(EMAGE_AGENT                 True         "enable EMAge agent 
 add_boolean_option(SPLIT_MAC_RLC_CU        False "enable the split mechanism between MAC and RLC at CU side")
 add_boolean_option(SPLIT_MAC_RLC_DU        False "enable the split mechanism between MAC and RLC at DU side")
 
+=======
+add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
+>>>>>>> Stashed changes
 ########################
 # Include order
 ##########################
@@ -888,9 +892,12 @@ if (${SPLIT_MAC_RLC_CU})
   include_directories (${OAI_SPLIT_DIR})
   include_directories (${OAI_SPLIT_DIR}/mac-rlc/cu)
   
-  add_library(SPLIT_MAC_RCL_CU_LIB ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c)
+  add_library(SPLIT_MAC_RLC_CU_LIB 
+    ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c
+    ${OAI_SPLIT_DIR}/mac-rlc/cu/split_macrlc_cu_task.c
+  )
 
-  set(SPLIT_LIB SPLIT_MAC_RCL_CU_LIB)
+set(SPLIT_LIB SPLIT_MAC_RLC_CU_LIB)
 
 endif(${SPLIT_MAC_RLC_CU})
 
@@ -899,9 +906,12 @@ if (${SPLIT_MAC_RLC_DU})
   include_directories (${OAI_SPLIT_DIR})
   include_directories (${OAI_SPLIT_DIR}/mac-rlc/du)
   
-  add_library(SPLIT_MAC_RCL_DU_LIB ${OAI_SPLIT_DIR}/mac-rlc/du/mr_du.c)
+  add_library(SPLIT_MAC_RLC_DU_LIB 
+    ${OAI_SPLIT_DIR}/mac-rlc/du/mr_du.c
+    ${OAI_SPLIT_DIR}/mac-rlc/du/split_macrlc_du_task.c
+    )
 
-  set(SPLIT_LIB SPLIT_MAC_RCL_DU_LIB)
+  set(SPLIT_LIB SPLIT_MAC_RLC_DU_LIB)
 
 endif(${SPLIT_MAC_RLC_DU})
 
