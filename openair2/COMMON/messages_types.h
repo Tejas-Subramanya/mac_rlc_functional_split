@@ -47,5 +47,6 @@
 #include "udp_messages_types.h"
 #include "gtpv1_u_messages_types.h"
 #include "udp_rlc_cu_messages_types.h"
+#include "udp_mac_du_messages_types.h"
 
 #endif /* MESSAGES_TYPES_H_ */
