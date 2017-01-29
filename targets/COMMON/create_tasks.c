@@ -146,7 +146,7 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #     if defined(SPLIT_MAC_RLC_DU)
     if (enb_nb > 0) {
-      if (itti_create_task (TASK_SPLIT_MACRLC_DU, udp_rlc_du_task, NULL) < 0) {
+      if (itti_create_task (TASK_SPLIT_MACRLC_DU, udp_mac_du_task, NULL) < 0) {
         LOG_E(SPLIT_MAC_RLC_DU, "Create task for SPLIT MACRLC DU failed\n");
         return -1;
          }
