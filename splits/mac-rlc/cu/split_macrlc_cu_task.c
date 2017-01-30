@@ -74,7 +74,7 @@ void udp_rlc_cu_receiver(struct udp_rlc_cu_socket_desc_s *udp_sock_pP);
 
 void *udp_rlc_cu_task(void *args_p);
 
-int udp_rlc_cu_init(const Enb_properties_t *enb_config_p);
+int udp_cu_init(const Enb_properties_t *enb_config_p);
 /* @brief Retrieve the descriptor associated with the task_id
  */
 static
@@ -238,7 +238,7 @@ void udp_rlc_cu_receiver(struct udp_rlc_cu_socket_desc_s *udp_sock_pP)
       forwarded_buffer = itti_malloc(TASK_SPLIT_MACRLC_CU, udp_sock_pP->task_id, n*sizeof(uint8_t));
       DevAssert(forwarded_buffer != NULL);
       memcpy(forwarded_buffer, l_buffer, n);
-      message_p = itti_alloc_new_message(TASK_SPLIT_MACRLC_CU, UDP_DATA_IND);
+      message_p = itti_alloc_new_message(TASK_SPLIT_MACRLC_CU, UDP_RLC_CU_DATA_RECEIVE);
       DevAssert(message_p != NULL);
       udp_rlc_cu_data_receive_p = &message_p->ittiMsg.udp_rlc_cu_data_receive;
       udp_rlc_cu_data_receive_p->buffer        = forwarded_buffer;
@@ -267,7 +267,7 @@ void *udp_rlc_cu_task(void *args_p)
   int                 nb_events;
   struct epoll_event *events;
   MessageDef         *received_message_p    = NULL;
-  udp_rlc_cu_init(NULL);
+  udp_cu_init(NULL);
 
   itti_mark_task_ready(TASK_SPLIT_MACRLC_CU);
   MSC_START_USE();
@@ -320,6 +320,7 @@ void *udp_rlc_cu_task(void *args_p)
                 "Failed to retrieve the udp socket descriptor "
                 "associated with task %d\n",
                 ITTI_MSG_ORIGIN_ID(received_message_p));
+
           pthread_mutex_unlock(&udp_rlc_cu_socket_list_mutex);
 
           if (udp_rlc_cu_data_send_p->buffer) {
@@ -396,7 +397,7 @@ on_error:
   return NULL;
 }
 
-int udp_rlc_cu_init(const Enb_properties_t *enb_config_p)
+int udp_cu_init(const Enb_properties_t *enb_config_p)
 {
   LOG_I(SPLIT_MACRLC_CU, "Initializing UDP RLC CU task \n");
   STAILQ_INIT(&udp_rlc_cu_socket_list);

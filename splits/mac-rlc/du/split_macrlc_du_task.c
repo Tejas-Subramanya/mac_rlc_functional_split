@@ -72,7 +72,7 @@ udp_mac_du_send_to(
 
 void udp_mac_du_receiver(struct udp_mac_du_socket_desc_s *udp_sock_pP);
 
-void *udp_mac_du_task(void *args_p);
+void *udp_du_task(void *args_p);
 
 int udp_mac_du_init(const Enb_properties_t *enb_config_p);
 /* @brief Retrieve the descriptor associated with the task_id
@@ -285,7 +285,7 @@ void *udp_mac_du_task(void *args_p)
       case UDP_MAC_DU_INIT: {
         LOG_D(SPLIT_MACRLC_DU, "Received UDP_MAC_DU_INIT\n");
         udp_mac_du_init_t *udp_mac_du_init_p;
-        udp_mac_du_init_p = &received_message_p->ittiMsg.udp_mac_du_init;
+        udp_mac_du_init_p = &received_message_p->ittiMsg.udp_du_init;
         udp_mac_du_create_socket(
           udp_mac_du_init_p->port,
           udp_mac_du_init_p->address,
@@ -395,7 +395,7 @@ on_error:
   return NULL;
 }
 
-int udp_mac_du_init(const Enb_properties_t *enb_config_p)
+int udp_du_init(const Enb_properties_t *enb_config_p)
 {
   LOG_I(SPLIT_MACRLC_DU, "Initializing UDP MAC DU task \n");
   STAILQ_INIT(&udp_mac_du_socket_list);
