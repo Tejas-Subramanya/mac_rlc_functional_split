@@ -22,17 +22,33 @@
 #include <mr_proto.h>
 
 int proto_parse_data_req(
-	struct mr_proto ** head,
-	struct mr_proto_data_req ** req,
-	char *   msg,
-	int      len) {
+	mrp ** head,
+	mrp_rreq ** req,
+	char * msg,
+	int len) {
 
-	if(sizeof(struct mr_proto) + sizeof(struct mr_proto_data_req) > len) {
+	if(sizeof(mrp) + sizeof(mrp_rreq) > len) {
 		return -1;
 	}
 
-	*head = (struct mr_proto *) msg;
-	*req  = (struct mr_proto_data_req *) (msg + sizeof(struct mr_proto));
+	*head = (mrp *) msg;
+	*req  = (mrp_rreq *) (msg + sizeof(struct mr_proto));
+
+	return 0;
+}
+
+int proto_parse_data_req_rep(
+	mrp ** head,
+	mrp_rrep ** rep,
+	char * msg,
+	int len) {
+
+	if(sizeof(mrp) + sizeof(mrp_rrep) > len) {
+		return -1;
+	}
+
+	*head = (mrp *) msg;
+	*rep  = (mrp_rrep *)(msg + sizeof(struct mr_proto));
 
 	return 0;
 }
@@ -41,27 +57,60 @@ int proto_prepare_data_req(
 	uint16_t rnti,
 	uint32_t frame,
 	uint32_t channel,
-	char *   msg,
-	int      len) {
+	char * msg,
+	int len) {
 
-	struct mr_proto *          head;
-	struct mr_proto_data_req * req;
+	mrp *      head;
+	mrp_rreq * req;
 
-	if(sizeof(struct mr_proto) + sizeof(struct mr_proto_data_req) > len) {
+	if(sizeof(mrp) + sizeof(mrp_rreq) > len) {
 		return -1;
 	}
 
-	head = (struct mr_proto *) msg;
+	head = (mrp *)msg;
 
 	head->type   = MR_PROTO_DATA_REQ;
 	head->vers   = 1;
-	head->len    = sizeof(struct mr_proto_data_req);
+	head->len    = sizeof(mrp_rreq);
 
-	req  = (struct mr_proto_data_req *) (msg + sizeof(struct mr_proto));
+	req  = (mrp_rreq *) (msg + sizeof(mrp));
 
 	req->rnti    = rnti;
 	req->frame   = frame;
 	req->channel = channel;
+
+	return 0;
+}
+
+int proto_prepare_data_req_rep(
+	uint16_t rnti,
+	uint32_t frame,
+	uint32_t channel,
+	char * data,
+	unsigned int datalen,
+	char * buf,
+	int len) {
+
+	mrp *      head;
+	mrp_rrep * rep;
+
+	if(sizeof(mrp) + sizeof(mrp_rrep) + datalen > len) {
+		return -1;
+	}
+
+	head = (mrp *)buf;
+
+	head->type   = MR_PROTO_DATA_REQ_REP;
+	head->vers   = 1;
+	head->len    = sizeof(mrp_rrep) + datalen - 1;
+
+	rep  = (mrp_rrep *) (buf + sizeof(mrp));
+
+	rep->rnti    = rnti;
+	rep->frame   = frame;
+	rep->channel = channel;
+
+	memcpy(&rep->data, data, datalen);
 
 	return 0;
 }
