@@ -20,34 +20,32 @@
 #include <unistd.h>
 
 #include <arpa/inet.h>
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 
 #include <pthread.h>
 
-#include <mr_net.h>
-#include <mr_proto.h>
+#include <netw.h>
+#include <splitproto.h>
+
 #include <mr_du.h>
 
 #ifdef EBUG
-#define DBG(x, ...)			printf("[DU] "x, ##__VA_ARGS__)
+#define DU_DBG(x, ...)		printf("du: "x"\n", ##__VA_ARGS__)
 #else
-#define DBG(x, ...)
+#define DU_DBG(x, ...)
 #endif
 
-#define MR_DU_CU_ADDR			"192.168.0.150"
-#define MR_DU_CU_PORT			9001
-#define MR_DU_CU_REC_TIMEOUT		100000000		/* uSec */
+#define DU_BUF_SIZE		8192
 
 /* DU should stop? */
 int du_stop = 0;
 
-/* Connected to the CU counterpart? */
-int du_con = 0;
-/* Socket file descriptor to connect with the CU. */
+/* Socket file descriptor for sending/receiving data. */
 int du_sockfd = 0;
-/* Address to the CU.*/
-struct sockaddr_in du_cuaddr = {0};
 
 /* DU thread context. */
 pthread_t du_thread;
@@ -58,65 +56,30 @@ pthread_spinlock_t du_lock;
 du_recv du_process_data = 0;
 
 /******************************************************************************
- * CU <--> DU logic.                                                          *
+ * DU <--> CU logic.                                                          *
  ******************************************************************************/
-
-/* Setup the networking stuff to be used. */
-int du_init_net() {
-	struct hostent * cu_name;
-
-	du_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if(du_sockfd < 0) {
-		printf("Could not open CU socket, error=%d\n", du_sockfd);
-		return -1;
-	}
-
-	/*
-	 * DNS resolving:
-	 */
-
-	cu_name = gethostbyname(MR_DU_CU_ADDR);
-
-	if (!cu_name) {
-		printf("End-point %s not found!\n", MR_DU_CU_ADDR);
-		return -1;
-	}
-
-	du_cuaddr.sin_family = AF_INET;
-	memcpy(&du_cuaddr.sin_addr.s_addr, cu_name->h_addr, cu_name->h_length);
-	du_cuaddr.sin_port = htons(MR_DU_CU_PORT);
-
-	return 0;
-}
 
 /* DU central logic. */
 void * du_loop(void * args) {
 	int  br = 0;
-	char buf[MR_NET_BUF_SIZE];
+	char buf[DU_BUF_SIZE] = {0};
 
-	struct sockaddr_in addr;
-	socklen_t          alen = sizeof(struct sockaddr);
-
-	DBG("Starting loop");
-
-	if(du_init_net()) {
-		printf("Could not open CU socket, error=%d\n", du_sockfd);
-		goto out;
-	}
+	DU_DBG("Starting DU loop");
 
 	while(!du_stop) {
-		br = mr_net_recvfrom(
-			du_sockfd, buf, MR_NET_BUF_SIZE, &addr, &alen);
+		br = nw_recv(
+			du_sockfd,
+			buf, DU_BUF_SIZE,
+			NETW_FLAG_NO_SIGNALS | NETW_FLAG_NO_WAIT);
 
 		if (br > 0 && du_process_data) {
-			du_process_data(&addr, buf, br);
+			du_process_data(buf, br);
 		}
 
 		/* Keep going; no pause for you! */
 	}
 
-out:	DBG("Loop terminated\n");
+	DU_DBG("DU Loop terminated\n");
 
 	return 0;
 }
@@ -125,15 +88,22 @@ out:	DBG("Loop terminated\n");
  * Public procedures.                                                         *
  ******************************************************************************/
 
-int du_init(du_recv process_data) {
-	DBG("Starting DU initialization");
+int du_init(char * dest, du_recv process_data) {
+	DU_DBG("Starting DU initialization");
+
+	du_sockfd = nw_open(dest, strlen(dest));
+
+	if(du_sockfd < 0) {
+		DU_DBG("Could not open DU socket.");
+		return -1;
+	}
 
 	pthread_spin_init(&du_lock, 0);
 	du_process_data = process_data;
 
 	/* Create the context where the agent scheduler will run on. */
 	if(pthread_create(&du_thread, NULL, du_loop, 0)) {
-		printf("DU: Failed to start DU thread.\n");
+		DU_DBG("Failed to start DU thread.");
 		return -1;
 	}
 
@@ -144,6 +114,8 @@ int du_release() {
 	du_stop = 1;
 	pthread_join(du_thread, 0);
 
+	nw_close(du_sockfd);
+
 	return 0;
 }
 
@@ -152,6 +124,6 @@ int du_send(char * buf, unsigned int len) {
 		return -1;
 	}
 
-	return mr_net_sendto(
-		du_sockfd, buf, len, &du_cuaddr, sizeof(struct sockaddr_in));
+	/* Waiting send operation. */
+	return nw_send(du_sockfd, buf, len, NETW_FLAG_NO_SIGNALS);
 }

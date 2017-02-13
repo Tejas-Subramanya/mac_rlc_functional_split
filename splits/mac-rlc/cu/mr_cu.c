@@ -20,30 +20,31 @@
 #include <unistd.h>
 
 #include <arpa/inet.h>
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 
+#include <sys/ioctl.h>
 #include <pthread.h>
 
-#include <mr_net.h>
 #include <mr_cu.h>
 
 #ifdef EBUG
-#define DBG(x, ...)			printf("[CU]     "x"\n", ##__VA_ARGS__)
+#define CU_DBG(x, ...)			printf("cu: "x"\n", ##__VA_ARGS__)
 #else
-#define DBG(x, ...)
+#define CU_DBG(x, ...)
 #endif
 
-#define MR_CU_PORT			9001
-#define MR_CU_CLIENTS			1
+#define CU_BUF_SIZE			8192
+
 
 /* CU should stop? */
 int cu_stop = 0;
 
-/* Socket file descriptor which is listening for DUs. */
+/* Socket file descriptor for receiving/sending. */
 int cu_sockfd = 0;
-/* Address of the last CU sender. */
-struct sockaddr_in cu_duaddr = {0};
 
 /* DU thread context. */
 pthread_t cu_thread;
@@ -57,55 +58,29 @@ cu_recv cu_process_data = 0;
  * CU <--> DU logic.                                                          *
  ******************************************************************************/
 
+
 /* CU central logic. */
 void * cu_loop(void * args) {
-	int status = 0;
-
 	int br = 0;
-	char buf[MR_NET_BUF_SIZE];
+	char buf[CU_BUF_SIZE] = {0};
 
-	struct sockaddr_in addr;
-	socklen_t clen = sizeof(struct sockaddr);
-
-	DBG("Starting loop");
-
-	cu_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if(cu_sockfd < 0) {
-		printf("Could not open CU socket, error=%d\n", cu_sockfd);
-		goto out;
-	}
-
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = htons(MR_CU_PORT);
-
-	status = bind(
-		cu_sockfd,
-		(struct sockaddr*)&addr,
-		sizeof(struct sockaddr_in));
-
-	/* Bind the address with the socket. */
-	if(status) {
-		printf("Could not BIND to CU socket, error=%d\n", status);
-		perror("bind");
-
-		goto out;
-	}
-
-	DBG("Listening for incoming data...");
+	CU_DBG("Starting loop");
 
 	while(!cu_stop) {
-		br = mr_net_recvfrom(
-			cu_sockfd, buf, MR_NET_BUF_SIZE, &cu_duaddr, &clen);
+		br = nw_recv(
+			cu_sockfd,
+			buf, CU_BUF_SIZE,
+			NETW_FLAG_NO_SIGNALS | NETW_FLAG_NO_WAIT);
 
 		/* Something has been read. */
 		if(br > 0 && cu_process_data) {
-			cu_process_data(&cu_duaddr, buf, br);
+			cu_process_data(buf, br);
 		}
+
+		/* Keep going; no pause for you! */
 	}
 
-out:	DBG("Loop terminated\n");
+	CU_DBG("Loop terminated\n");
 
 	return 0;
 }
@@ -114,15 +89,22 @@ out:	DBG("Loop terminated\n");
  * Public procedures.                                                         *
  ******************************************************************************/
 
-int cu_init(cu_recv process_data) {
-	DBG("Starting CU initialization");
+int cu_init(char * dest, cu_recv process_data) {
+	CU_DBG("Starting CU initialization");
+
+	cu_sockfd = nw_open(dest, strlen(dest));
+
+	if(cu_sockfd < 0) {
+		CU_DBG("Could not open CU socket.");
+		return -1;
+	}
 
 	pthread_spin_init(&cu_lock, 0);
 	cu_process_data = process_data;
 
 	/* Create the context where the agent scheduler will run on. */
 	if(pthread_create(&cu_thread, NULL, cu_loop, 0)) {
-		printf("CU: Failed to start DU thread.\n");
+		CU_DBG("CU: Failed to start DU thread.\n");
 		return -1;
 	}
 
@@ -130,10 +112,12 @@ int cu_init(cu_recv process_data) {
 }
 
 int cu_release() {
-	DBG("Starting CU releasing");
+	CU_DBG("Starting CU releasing");
 
 	cu_stop = 1;
 	pthread_join(cu_thread, 0);
+
+	nw_close(cu_sockfd);
 
 	return 0;
 }
@@ -143,7 +127,6 @@ int cu_send(char * buf, unsigned int len) {
 		return -1;
 	}
 
-	return mr_net_sendto(
-		cu_sockfd, buf, len, &cu_duaddr, sizeof(struct sockaddr_in));
+	/* Waiting send operation. */
+	return nw_send(cu_sockfd, buf, len, NETW_FLAG_NO_SIGNALS);
 }
-

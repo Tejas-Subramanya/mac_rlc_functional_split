@@ -16,20 +16,18 @@
 #ifndef __MR_CU_H
 #define __MR_CU_H
 
-#include <netinet/in.h>
-
-#include <mr_proto.h>
+#include <netw.h>
+#include <splitproto.h>
 
 /* CU data processing callback. */
-typedef int (* cu_recv) (
-	struct sockaddr_in * addr, char * buf, unsigned int len);
+typedef int (* cu_recv) (char * buf, unsigned int len);
 
 /* Initialize the DU mechanisms. Data received through the CU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *
  * Returns 0 on success, otherwise a negative error code.
  */
-int cu_init(cu_recv process_data);
+int cu_init(char * iface, cu_recv process_data);
 
 /* Release the DU mechanisms.
  *
@@ -37,7 +35,8 @@ int cu_init(cu_recv process_data);
  */
 int cu_release();
 
-/* Send some bytes to the DU.
+/* Send some bytes to the DU. Such bytes will be sent as they are, so is up to
+ * you provide the necessary HW header.
  *
  * Returns the number of bytes sent on success, otherwise a negative error code.
  */
