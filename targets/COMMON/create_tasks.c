@@ -23,6 +23,7 @@
 # include "intertask_interface.h"
 # include "create_tasks.h"
 # include "log.h"
+# include <signal.h>
 
 # ifdef OPENAIR2
 #   if defined(ENABLE_USE_MME)
@@ -85,12 +86,48 @@ static int process_data_du(char * buf, unsigned int len) {
 #if defined(SPLIT_MAC_RLC_CU) 
 #define CU_BUF_SIZE 8192
 char cu_outbuf[CU_BUF_SIZE] = {0};
+spmr_srep cu_status = {0};
+
+int rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
+	int blen;
+	spmr_sreq * request;
+	spmr_srep reply;
+
+	if(sp_mr_identify_sreq(&request, buf, len)) {
+		return -1;
+	}
+
+	reply.rnti    = request->rnti;
+	reply.frame   = request->frame;
+	reply.channel = request->channel;
+	reply.tb_size = request->tb_size;
+
+	reply.bytes   = cu_status.bytes;
+	reply.pdus    = cu_status.pdus;
+
+	head->type    = S_PROTO_MR_STATUS_REP;
+	head->len     = sizeof(sp_head) + sizeof(spmr_srep);
+
+	sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
+	blen = sp_mr_pack_srep(&reply, cu_outbuf, CU_BUF_SIZE);
+
+	cu_send(cu_outbuf, blen);
+
+	return 0;
+}
 
 //TO BE DONE: Correct these values
-int module_idP = 1;
-int eNB_index = 1;
-bool enb_flagP = 1;
-bool MBMS_flagP = 0;
+//int module_idP = 1;
+//int eNB_index = 1;
+//bool enb_flagP = 1;
+//bool MBMS_flagP = 0;
+
+void sign_handler(int signal) {
+	if(signal == SIGINT) {
+		printf("Stopping execution...!/n");
+		exit(0);
+	}
+}
 
 static int process_data_cu(char *buf, unsigned int len) {
   sp_head * head;
@@ -107,8 +144,12 @@ static int process_data_cu(char *buf, unsigned int len) {
   
   switch(head->type) {
   /* Status req received from DU */
-    case S_PROTO_MR_STATUS_REQ:
 
+
+    case S_PROTO_MR_STATUS_REQ:
+      rlc_status_reply(head, buf, len);
+      break;
+/*      
       if(sp_mr_identify_sreq(&status_req, buf, len)) {
         return -1;
       }
@@ -134,7 +175,7 @@ static int process_data_cu(char *buf, unsigned int len) {
       buflen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);      
       cu_send(cu_outbuf, buflen);
       break;
-
+*/
   /* Status resp received by DU */    
     case S_PROTO_MR_STATUS_REP:
       break;

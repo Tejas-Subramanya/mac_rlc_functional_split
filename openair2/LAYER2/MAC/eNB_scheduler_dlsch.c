@@ -58,17 +58,26 @@
 #endif
 
 #include "T.h"
+#include <signal.h>
 
 #define ENABLE_MAC_PAYLOAD_DEBUG
 //#define DEBUG_eNB_SCHEDULER 1
 
 #if defined(SPLIT_MAC_RLC_DU)
 #include "mr_du.h"
+#include <time.h>
+#define NS_TO_MS  (1000000)
+#define ts_nsec(t)  ((t.tv_sec * 1000000000) + (t.tv_nsec))
 #define DU_BUF_SIZE 8192
 int du_status_arrived = 0;
 spmr_srep du_status_data = {0};
 int du_data_arrived = 0;
 spmr_drep du_data_reply = {0};
+#define STATS
+int                rtime_count = 0;
+unsigned long long rtime_total = 0;
+unsigned long long rtime_wait  = 0;
+
 #endif
 
 //------------------------------------------------------------------------------
@@ -419,6 +428,74 @@ set_ul_DAI(
   }
 }
 
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+mac_rlc_status_resp_t mac_rlc_status_indication() {
+	mac_rlc_status_resp_t ret = {0};
+
+	sp_head   sh;
+	spmr_sreq sr;
+
+	char buf[DU_BUF_SIZE] = {0};
+	int  blen  = 0;
+
+	ret.bytes_in_buffer = -1;
+
+	sh.type    = S_PROTO_MR_STATUS_REQ;
+	sh.vers    = 1;
+	sh.len     = sizeof(spmr_sreq);
+
+	sr.rnti    = 1;
+	sr.frame   = 1;
+	sr.channel = 1;
+	sr.tb_size = 1;
+
+	sp_pack_head(&sh, buf, DU_BUF_SIZE);
+	blen = sp_mr_pack_sreq(&sr, buf, DU_BUF_SIZE);
+
+	du_send(buf, blen);
+
+	/* Wait for the reply... */
+	while(1) {
+		if(!du_status_arrived) {
+			continue;
+		}
+
+		ret.bytes_in_buffer        = du_status_data.bytes;
+		ret.pdus_in_buffer         = du_status_data.pdus;
+		ret.head_sdu_creation_time = du_status_data.creation_frame;
+		ret.head_sdu_remaining_size_to_send =
+			du_status_data.remaining_bytes;
+		ret.head_sdu_is_segmented  = du_status_data.segmented;
+
+		break;
+	}
+
+	du_status_arrived = 0;
+
+	return ret;
+}
+
+void sign_handler(int signal) {
+	if(signal == SIGINT) {
+		printf("Stopping execution...!/n");
+
+#ifdef STATS
+		printf("Running stats:\n"
+			"    Cycles:           %d\n"
+			"    Avg running time: %.3f usec\n"
+			"    Avg waiting time: %.3f msec\n",
+			rtime_count,
+			((float)rtime_total / (float)rtime_count) / (float)1000,
+			((float)rtime_wait / (float)rtime_count) / (float)1000);
+#endif
+
+		exit(0);
+	}
+}
+
+#endif
 
 //------------------------------------------------------------------------------
 void
@@ -820,8 +897,9 @@ schedule_ue_spec(
 
         if ( TBS-ta_len-header_len_dcch > 0 ) {
 
-# if defined(SPLIT_MAC_RLC_DU)
-              
+
+#if defined(SPLIT_MAC_RLC_DU)
+/*
           sp_head   status_header;
           spmr_sreq   status_request;
           char buf[DU_BUF_SIZE] = {0};
@@ -857,6 +935,44 @@ schedule_ue_spec(
           du_status_arrived = 0;
 
 # else
+*/
+          struct timespec start;
+          struct timespec elapsed;
+          long int i;
+          long int j;
+          mac_rlc_status_resp_t status;
+          while(1) {
+            clock_gettime(CLOCK_REALTIME, &start);
+            #ifndef NOTHING
+            status = mac_rlc_status_indication();
+          
+            if(status.bytes_in_buffer > 0) {
+               //len = /* Data request here... */
+            }
+            #endif
+          
+            clock_gettime(CLOCK_REALTIME, &elapsed);
+          
+            i = ts_nsec(elapsed) - ts_nsec(start);
+            if(i > 1 * NS_TO_MS) {
+              printf("L"); /* LATE! */
+              fflush(stdout);
+              continue;
+            }
+            else {
+              j = (1 * NS_TO_MS) - i;
+              usleep(j / 1000);
+            }
+          
+            /* Get the sleeping time: */
+            clock_gettime(CLOCK_REALTIME, &start);
+          
+            j = ts_nsec(start) - ts_nsec(elapsed);
+            rtime_wait += j;
+            rtime_count++;
+            rtime_total += i;
+          }
+#endif
 
           rlc_status = mac_rlc_status_ind(
                          module_idP,
@@ -868,7 +984,6 @@ schedule_ue_spec(
                          DCCH,
                          (TBS-ta_len-header_len_dcch)); // transport block set size
 
-# endif
 
           sdu_lengths[0]=0;
 
@@ -876,6 +991,7 @@ schedule_ue_spec(
             LOG_D(MAC,"[eNB %d] Frame %d, DL-DCCH->DLSCH CC_id %d, Requesting %d bytes from RLC (RRC message)\n",
                   module_idP,frameP,CC_id,TBS-header_len_dcch);
 
+//Remove the comments below
 /* # if defined(SPLIT_MAC_RLC_DU)
             sp_head data_header;
             spmr_dreq data_request;
