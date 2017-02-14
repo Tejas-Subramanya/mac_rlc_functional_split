@@ -28,10 +28,10 @@
 
 #include <pthread.h>
 
-#include <netw.h>
-#include <splitproto.h>
+#include "netw.h"
+#include "splitproto.h"
 
-#include <mr_du.h>
+#include "mr_du.h"
 
 #ifdef EBUG
 #define DU_DBG(x, ...)		printf("du: "x"\n", ##__VA_ARGS__)

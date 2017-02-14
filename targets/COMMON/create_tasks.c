@@ -40,13 +40,127 @@
 
 #   if defined(SPLIT_MAC_RLC_CU)
 #     include "split_macrlc_cu_task.h"
+#     include "mr_cu.h"
+#     include "rlc.h"
 #   endif
 
 #   if defined(SPLIT_MAC_RLC_DU)
 #     include "split_macrlc_du_task.h"
+#     include "mr_du.h"
 #   endif
 # endif
 # include "enb_app.h"
+
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+static int process_data_du(char * buf, unsigned int len) {
+  sp_head * head;
+  spmr_srep * status_reply = 0;
+  spmr_drep * data_reply = 0;
+
+  if(sp_identify_head(&head, buf, len)) {
+    return 0;
+  }
+
+  switch(head->type) {
+  /* Status reply received from CU. */
+    case S_PROTO_MR_STATUS_REP:
+      sp_mr_identify_srep(&status_reply, buf, len);
+      memcpy(&du_status_data, status_reply, sizeof(spmr_srep));
+      du_status_arrived = 1;
+      break;
+  /* Data_Response received from CU. */
+  case S_PROTO_MR_DATA_REQ_REP:
+    sp_mr_identify_drep(&data_reply, buf, len);
+    memcpy(&du_data_reply, data_reply, sizeof(spmr_drep));
+    du_data_arrived = 1;
+    break;
+  }
+  return 0;
+}
+
+#endif
+
+#if defined(SPLIT_MAC_RLC_CU) 
+#define CU_BUF_SIZE 8192
+char cu_outbuf[CU_BUF_SIZE] = {0};
+
+//TO BE DONE: Correct these values
+int module_idP = 1;
+int eNB_index = 1;
+bool enb_flagP = 1;
+bool MBMS_flagP = 0;
+
+static int process_data_cu(char *buf, unsigned int len) {
+  sp_head * head;
+
+  if(sp_identify_head(&head, buf, len)) {
+    return 0;
+  }
+
+  
+  int buflen;
+  spmr_sreq *status_req;
+  spmr_srep status_reply;
+  mac_rlc_status_resp_t ret;
+  
+  switch(head->type) {
+  /* Status req received from DU */
+    case S_PROTO_MR_STATUS_REQ:
+
+      if(sp_mr_identify_sreq(&status_req, buf, len)) {
+        return -1;
+      }
+     
+      //TO BE DONE: Define constant arguments module_idP, eNB_index, enb_flagP, MBMS_flagP before calling the function
+      
+      ret = mac_rlc_status_ind(module_idP, status_req->rnti, eNB_index, status_req->frame, enb_flagP, MBMS_flagP, status_req->channel, status_req->tb_size);
+      status_reply.bytes = ret.bytes_in_buffer;
+      status_reply.pdus = ret.pdus_in_buffer;
+      status_reply.creation_frame = ret.head_sdu_creation_time;
+      status_reply.remaining_bytes = ret.head_sdu_remaining_size_to_send;
+      status_reply.segmented = ret.head_sdu_is_segmented;
+
+      status_reply.rnti = status_req->rnti;
+      status_reply.frame = status_req->frame;
+      status_reply.channel = status_req->channel;
+      status_reply.tb_size = status_req->tb_size;
+
+      head->type = S_PROTO_MR_STATUS_REP;
+      head->len = sizeof(sp_head) + sizeof(spmr_srep);
+
+      sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
+      buflen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);      
+      cu_send(cu_outbuf, buflen);
+      break;
+
+  /* Status resp received by DU */    
+    case S_PROTO_MR_STATUS_REP:
+      break;
+  /* Data req received by DU */
+    case S_PROTO_MR_DATA_REQ:
+      break;
+  /* Data resp received by DU */
+    case S_PROTO_MR_DATA_REQ_REP:
+      break;
+  /* Invalid data received by DU */
+    case S_PROTO_INVALID:
+    default:
+      printf("Type not handled; dumping data:\n");
+      for(int i = 0; i < 32; i++) {
+        if((i + 1) % 16 == 0) {
+          printf("\n");
+        }
+        printf("%02x ", (unsigned char)buf[i]);
+      }
+      printf("\n");
+      break;
+  }
+  return 0;
+}
+
+#endif
 
 int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 {
@@ -136,8 +250,8 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #     if defined(SPLIT_MAC_RLC_CU)
     if (enb_nb > 0) {
-      if (itti_create_task (TASK_SPLIT_MACRLC_CU, udp_rlc_cu_task, NULL) < 0) {
-        LOG_E(SPLIT_MAC_RLC_CU, "Create task for SPLIT MACRLC CU failed\n");
+      if (cu_init("192.168.100.100:9001", process_data_cu)) { //TO BE DONE: Change IP address
+        LOG_E(SPLIT_MAC_RLC_CU, "Create thread for  SPLIT MACRLC CU failed\n");
         return -1;
          }
       }
@@ -146,8 +260,8 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #     if defined(SPLIT_MAC_RLC_DU)
     if (enb_nb > 0) {
-      if (itti_create_task (TASK_SPLIT_MACRLC_DU, udp_mac_du_task, NULL) < 0) {
-        LOG_E(SPLIT_MAC_RLC_DU, "Create task for SPLIT MACRLC DU failed\n");
+      if (du_init("192.168.100.101:9000", process_data_du)) { //TO BE DONE: Change IP address
+        LOG_E(SPLIT_MAC_RLC_DU, "Create thread for SPLIT MACRLC DU failed\n");
         return -1;
          }
       }

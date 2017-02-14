@@ -628,8 +628,8 @@ add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent
 # Split options
 ##########################
 
-add_boolean_option(SPLIT_MAC_RLC_CU        True "enable the split mechanism between MAC and RLC at CU side")
-add_boolean_option(SPLIT_MAC_RLC_DU        False "enable the split mechanism between MAC and RLC at DU side")
+add_boolean_option(SPLIT_MAC_RLC_CU        False "enable the split mechanism between MAC and RLC at CU side")
+add_boolean_option(SPLIT_MAC_RLC_DU        True "enable the split mechanism between MAC and RLC at DU side")
 
 
 add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
@@ -891,10 +891,16 @@ if (${SPLIT_MAC_RLC_CU})
   set(OAI_SPLIT_DIR ${OPENAIR_DIR}/splits)
   include_directories (${OAI_SPLIT_DIR})
   include_directories (${OAI_SPLIT_DIR}/mac-rlc/cu)
-  
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/common)
+  include_directories (${OAI_SPLIT_DIR}/include)
+  include_directories (${OAI_SPLIT_DIR}/netw/udp)
+  include_directories (${OAI_SPLIT_DIR}/proto/raw)
+
   add_library(SPLIT_MAC_RLC_CU_LIB 
     ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c
     ${OAI_SPLIT_DIR}/mac-rlc/cu/split_macrlc_cu_task.c
+    ${OAI_SPLIT_DIR}/netw/udp/netw_udp.c
+    ${OAI_SPLIT_DIR}/proto/raw/proto_raw.c
   )
 
 set(SPLIT_LIB SPLIT_MAC_RLC_CU_LIB)
@@ -905,12 +911,17 @@ if (${SPLIT_MAC_RLC_DU})
   set(OAI_SPLIT_DIR ${OPENAIR_DIR}/splits)
   include_directories (${OAI_SPLIT_DIR})
   include_directories (${OAI_SPLIT_DIR}/mac-rlc/du)
-  
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/common)
+  include_directories (${OAI_SPLIT_DIR}/include)
+  include_directories (${OAI_SPLIT_DIR}/netw/udp)
+  include_directories (${OAI_SPLIT_DIR}/proto/raw)
+
   add_library(SPLIT_MAC_RLC_DU_LIB 
     ${OAI_SPLIT_DIR}/mac-rlc/du/mr_du.c
     ${OAI_SPLIT_DIR}/mac-rlc/du/split_macrlc_du_task.c
-    )
-
+    ${OAI_SPLIT_DIR}/netw/udp/netw_udp.c
+    ${OAI_SPLIT_DIR}/proto/raw/proto_raw.c
+  )
   set(SPLIT_LIB SPLIT_MAC_RLC_DU_LIB)
 
 endif(${SPLIT_MAC_RLC_DU})

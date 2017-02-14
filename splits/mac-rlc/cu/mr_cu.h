@@ -16,20 +16,20 @@
 #ifndef __MR_CU_H
 #define __MR_CU_H
 
-#include <netw.h>
-#include <splitproto.h>
+#include "netw.h"
+#include "splitproto.h"
 
 /* CU data processing callback. */
 typedef int (* cu_recv) (char * buf, unsigned int len);
 
-/* Initialize the DU mechanisms. Data received through the CU mechanism will be
+/* Initialize the CU mechanisms. Data received through the DU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *
  * Returns 0 on success, otherwise a negative error code.
  */
 int cu_init(char * iface, cu_recv process_data);
 
-/* Release the DU mechanisms.
+/* Release the CU mechanisms.
  *
  * Returns 0 on success, otherwise a negative error code.
  */

@@ -62,7 +62,14 @@
 #define ENABLE_MAC_PAYLOAD_DEBUG
 //#define DEBUG_eNB_SCHEDULER 1
 
-
+#if defined(SPLIT_MAC_RLC_DU)
+#include "mr_du.h"
+#define DU_BUF_SIZE 8192
+int du_status_arrived = 0;
+spmr_srep du_status_data = {0};
+int du_data_arrived = 0;
+spmr_drep du_data_reply = {0};
+#endif
 
 //------------------------------------------------------------------------------
 void
@@ -812,6 +819,45 @@ schedule_ue_spec(
         header_len_dcch = 2; // 2 bytes DCCH SDU subheader
 
         if ( TBS-ta_len-header_len_dcch > 0 ) {
+
+# if defined(SPLIT_MAC_RLC_DU)
+              
+          sp_head   status_header;
+          spmr_sreq   status_request;
+          char buf[DU_BUF_SIZE] = {0};
+          int buflen = 0;
+
+          status_header.type    = S_PROTO_MR_STATUS_REQ;
+          status_header.vers    = 1;
+          status_header.len     = sizeof(spmr_sreq);
+          
+          status_request.rnti = rnti;
+          status_request.frame = frameP;
+          status_request.channel = DCCH;
+          status_request.tb_size = TBS - ta_len - header_len_dcch;
+
+          sp_pack_head(&status_header, buf, DU_BUF_SIZE);
+          buflen = sp_mr_pack_sreq(&status_request, buf, DU_BUF_SIZE);
+
+          du_send(buf, buflen);
+
+          while(1) {
+            if(!du_status_arrived) {
+              continue;
+            }
+
+             rlc_status.bytes_in_buffer        = du_status_data.bytes;
+             rlc_status.pdus_in_buffer         = du_status_data.pdus;
+             rlc_status.head_sdu_creation_time = du_status_data.creation_frame;
+             rlc_status.head_sdu_remaining_size_to_send = du_status_data.remaining_bytes;
+             rlc_status.head_sdu_is_segmented  = du_status_data.segmented;
+             break;
+          }
+
+          du_status_arrived = 0;
+
+# else
+
           rlc_status = mac_rlc_status_ind(
                          module_idP,
                          rnti,
@@ -822,11 +868,45 @@ schedule_ue_spec(
                          DCCH,
                          (TBS-ta_len-header_len_dcch)); // transport block set size
 
+# endif
+
           sdu_lengths[0]=0;
 
           if (rlc_status.bytes_in_buffer > 0) {  // There is DCCH to transmit
             LOG_D(MAC,"[eNB %d] Frame %d, DL-DCCH->DLSCH CC_id %d, Requesting %d bytes from RLC (RRC message)\n",
                   module_idP,frameP,CC_id,TBS-header_len_dcch);
+
+/* # if defined(SPLIT_MAC_RLC_DU)
+            sp_head data_header;
+            spmr_dreq data_request;
+            char buf[DU_BUF_SIZE] = {0};
+            int buflen = 0;            
+
+            data_header.type = S_PROTO_MR_DATA_REQ;
+            data_header.vers = 1;
+            data_header.len = sizeof(spmr_sreq);
+            
+            data_request.rnti = rnti;
+            data_request.frame = frame;
+            data_request.channel = DCCH;
+
+            sp_pack_head(&data_header, buf, DU_BUF_SIZE);
+            buflen = sp_mr_pack_dreq(&data_request, buf, DU_BUF_SIZE);
+
+            du_send(buf, buflen);
+
+            while(1) {
+              if(!du_data_arrived) {
+                continue;
+              }
+
+              //sdu_lengths[0] += du_data_reply.
+              //memcpy((char *)&dlsch_buffer[sdu_lengths[0]], 
+
+              du_data_arrived = 1;
+              break;
+            }
+# else */
             sdu_lengths[0] += mac_rlc_data_req(
                                 module_idP,
                                 rnti,
@@ -836,6 +916,8 @@ schedule_ue_spec(
                                 MBMS_FLAG_NO,
                                 DCCH,
                                 (char *)&dlsch_buffer[sdu_lengths[0]]);
+
+// # endif
 
             T(T_ENB_MAC_UE_DL_SDU, T_INT(module_idP), T_INT(CC_id), T_INT(rnti), T_INT(frameP), T_INT(subframeP),
               T_INT(harq_pid), T_INT(DCCH), T_INT(sdu_lengths[0]));

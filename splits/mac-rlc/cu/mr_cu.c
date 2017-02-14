@@ -29,7 +29,7 @@
 #include <sys/ioctl.h>
 #include <pthread.h>
 
-#include <mr_cu.h>
+#include "mr_cu.h"
 
 #ifdef EBUG
 #define CU_DBG(x, ...)			printf("cu: "x"\n", ##__VA_ARGS__)
@@ -46,7 +46,7 @@ int cu_stop = 0;
 /* Socket file descriptor for receiving/sending. */
 int cu_sockfd = 0;
 
-/* DU thread context. */
+/* CU thread context. */
 pthread_t cu_thread;
 /* Lock protecting CU threading context. */
 pthread_spinlock_t cu_lock;
@@ -104,7 +104,7 @@ int cu_init(char * dest, cu_recv process_data) {
 
 	/* Create the context where the agent scheduler will run on. */
 	if(pthread_create(&cu_thread, NULL, cu_loop, 0)) {
-		CU_DBG("CU: Failed to start DU thread.\n");
+		CU_DBG("CU: Failed to start CU thread.\n");
 		return -1;
 	}
 
