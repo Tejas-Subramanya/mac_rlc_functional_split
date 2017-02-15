@@ -33,8 +33,11 @@
 
 #include "mr_du.h"
 
+#define EBUG
+
 #ifdef EBUG
-#define DU_DBG(x, ...)		printf("du: "x"\n", ##__VA_ARGS__)
+#define DU_DBG(x, ...)			printf(			\
+"--------------------------------------------> DU: "x"\n", ##__VA_ARGS__)
 #else
 #define DU_DBG(x, ...)
 #endif
@@ -53,7 +56,7 @@ pthread_t du_thread;
 pthread_spinlock_t du_lock;
 
 /* Callback invoked when data is received. */
-du_recv du_process_data = 0;
+int (* du_process_data) (char * buf, unsigned int len) = 0;
 
 /******************************************************************************
  * DU <--> CU logic.                                                          *
@@ -70,13 +73,16 @@ void * du_loop(void * args) {
 		br = nw_recv(
 			du_sockfd,
 			buf, DU_BUF_SIZE,
-			NETW_FLAG_NO_SIGNALS | NETW_FLAG_NO_WAIT);
+			NETW_FLAG_NO_SIGNALS /*| NETW_FLAG_NO_WAIT*/);
 
 		if (br > 0 && du_process_data) {
 			du_process_data(buf, br);
 		}
 
-		/* Keep going; no pause for you! */
+		/* Pause only if there's nothing to do. */
+		//if(br < 0) {
+		//	usleep(50);
+		//}
 	}
 
 	DU_DBG("DU Loop terminated\n");
@@ -88,10 +94,10 @@ void * du_loop(void * args) {
  * Public procedures.                                                         *
  ******************************************************************************/
 
-int du_init(char * dest, du_recv process_data) {
+int du_init(char * args, int (* process_data) (char * buf, unsigned int len)) {
 	DU_DBG("Starting DU initialization");
 
-	du_sockfd = nw_open(dest, strlen(dest));
+	du_sockfd = nw_open(args, strlen(args));
 
 	if(du_sockfd < 0) {
 		DU_DBG("Could not open DU socket.");

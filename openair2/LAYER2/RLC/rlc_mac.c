@@ -37,6 +37,49 @@
 #include "assertions.h"
 #include "UTIL/LOG/vcd_signal_dumper.h"
 
+/******************************************************************************
+ * RLC-MAC split mechanisms; only valid if split is enabled.                  *
+ ******************************************************************************/
+
+#if defined (SPLIT_MAC_RLC_CU) || defined (SPLIT_MAC_RLC_DU)
+
+/*
+ * Operations which are in common for both the profiles.
+ */
+
+
+
+/*
+ * This area is valid only if CU profile is enabled.
+ */
+#ifdef SPLIT_MAC_RLC_CU
+int mac_rlc_cu_recv(char * buf, unsigned int len) {
+  /* Send it back. */
+  cu_send(buf, len);
+  /* Do nothing... */
+
+  return 0;
+}
+#endif /* SPLIT_MAC_RLC_CU */
+
+/*
+ * This area is valid only if DU profile is enabled.
+ */
+#ifdef SPLIT_MAC_RLC_DU
+int mac_rlc_du_recv(char * buf, unsigned int len) {
+  mr_stat_ind_epilogue();
+
+  /* Do nothing... */
+  return 0;
+}
+#endif /* SPLIT_MAC_RLC_DU */
+
+#endif /* SPLIT_MAC_RLC_CU || SPLIT_MAC_RLC_DU*/
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
+
 //#define DEBUG_MAC_INTERFACE 1
 
 //-----------------------------------------------------------------------------

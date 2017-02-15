@@ -19,21 +19,18 @@
 #include <netw.h>
 #include <splitproto.h>
 
-/* DU data processing callback. */
-typedef int (* du_recv) (char * buf, unsigned int len);
-
 /* Initialize the DU mechanisms. Data received through the CU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *
  * Returns 0 on success, otherwise a negative error code.
  */
-int du_init(char * iface, du_recv process_data);
+int du_init(char * args, int (* process_data) (char * buf, unsigned int len));
 
 /* Release the DU mechanisms.
  *
  * Returns 0 on success, otherwise a negative error code.
  */
-int du_release();
+int du_release(void);
 
 /* Send some bytes to the CU. Such bytes will be sent as they are, so is up to
  * you provide the necessary HW header.

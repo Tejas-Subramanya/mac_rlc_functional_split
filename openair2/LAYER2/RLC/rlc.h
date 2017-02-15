@@ -55,6 +55,14 @@
 #    include "SRB-ToAddModList.h"
 #    include "DRB-ToReleaseList.h"
 
+#    ifdef SPLIT_MAC_RLC_CU
+#        include "mr_cu.h"
+#    endif /* SPLIT_MAC_RLC_CU */
+
+#    ifdef SPLIT_MAC_RLC_DU
+#        include "mr_du.h"
+#    endif /* SPLIT_MAC_RLC_DU */
+
 #ifdef Rel10
 #include "PMCH-InfoList-r9.h"
 #endif
@@ -635,6 +643,20 @@ public_rlc(rlc_op_status_t rlc_stat_req     (
 * \brief    RAZ the memory of the RLC layer, initialize the memory pool manager (mem_block_t structures mainly used in RLC module).
 */
 public_rlc(int rlc_module_init(void);)
+
+//-----------------------------------------------------------------------------
+// RLC-MAC split methods
+//-----------------------------------------------------------------------------
+
+#ifdef SPLIT_MAC_RLC_CU
+// CU-side receiver callback which handles incoming data from the DU.
+public_rlc(int mac_rlc_cu_recv(char * buf, unsigned int len);)
+#endif /* SPLIT_MAC_RLC_CU */
+
+#ifdef SPLIT_MAC_RLC_DU
+// DU-side receiver callback which handles incoming data from the CU.
+public_rlc(int mac_rlc_du_recv(char * buf, unsigned int len);)
+#endif /* SPLIT_MAC_RLC_DU */
 
 /** @} */
 #ifndef USER_MODE

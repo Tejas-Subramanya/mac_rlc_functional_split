@@ -31,14 +31,16 @@
 
 #include "mr_cu.h"
 
+#define EBUG
+
 #ifdef EBUG
-#define CU_DBG(x, ...)			printf("cu: "x"\n", ##__VA_ARGS__)
+#define CU_DBG(x, ...)			printf(			\
+"--------------------------------------------> CU: "x"\n", ##__VA_ARGS__)
 #else
 #define CU_DBG(x, ...)
 #endif
 
 #define CU_BUF_SIZE			8192
-
 
 /* CU should stop? */
 int cu_stop = 0;
@@ -52,12 +54,11 @@ pthread_t cu_thread;
 pthread_spinlock_t cu_lock;
 
 /* Callback invoked when data is received. */
-cu_recv cu_process_data = 0;
+int (* cu_process_data) (char * buf, unsigned int len) = 0;
 
 /******************************************************************************
  * CU <--> DU logic.                                                          *
  ******************************************************************************/
-
 
 /* CU central logic. */
 void * cu_loop(void * args) {
@@ -70,14 +71,17 @@ void * cu_loop(void * args) {
 		br = nw_recv(
 			cu_sockfd,
 			buf, CU_BUF_SIZE,
-			NETW_FLAG_NO_SIGNALS | NETW_FLAG_NO_WAIT);
+			NETW_FLAG_NO_SIGNALS /*| NETW_FLAG_NO_WAIT*/);
 
 		/* Something has been read. */
 		if(br > 0 && cu_process_data) {
 			cu_process_data(buf, br);
 		}
 
-		/* Keep going; no pause for you! */
+		/* Pause only if there's nothing to do. */
+		//if(br < 0) {
+		//	usleep(50);
+		//}
 	}
 
 	CU_DBG("Loop terminated\n");
@@ -89,10 +93,10 @@ void * cu_loop(void * args) {
  * Public procedures.                                                         *
  ******************************************************************************/
 
-int cu_init(char * dest, cu_recv process_data) {
+int cu_init(char * args, int (* process_data) (char * buf, unsigned int len)) {
 	CU_DBG("Starting CU initialization");
 
-	cu_sockfd = nw_open(dest, strlen(dest));
+	cu_sockfd = nw_open(args, strlen(args));
 
 	if(cu_sockfd < 0) {
 		CU_DBG("Could not open CU socket.");
