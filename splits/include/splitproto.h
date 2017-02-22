@@ -138,7 +138,7 @@ typedef struct split_mr_status_reply {
 	/* Number of PDUs. */
 	uint32_t pdus;
 	/* Frame where it will be sent. */
-	uint32_t creation_frame;
+	uint32_t creation_time;
 	/* Remaining bytes left. If the SDU is not segmented, the size of the
 	 * SDU itself.
 	 */

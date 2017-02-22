@@ -94,4 +94,5 @@ void mr_stat_status_prologue() {
 
 void mr_stat_status_epilogue() {
 	clock_gettime(CLOCK_REALTIME, &status_finish);
+        printf("Print stats for 'status_req&rep' messages"\n);
 }

@@ -19,6 +19,7 @@
 #include "netw.h"
 #include "splitproto.h"
 
+#define CU_BUF_SIZE   8192
 /* Initialize the CU mechanisms. Data received through the DU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *

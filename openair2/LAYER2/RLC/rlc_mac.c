@@ -47,31 +47,94 @@
  * Operations which are in common for both the profiles.
  */
 
-
-
 /*
  * This area is valid only if CU profile is enabled.
  */
 #ifdef SPLIT_MAC_RLC_CU
-int mac_rlc_cu_recv(char * buf, unsigned int len) {
-  /* Send it back. */
-  cu_send(buf, len);
-  /* Do nothing... */
+mac_rlc_status_resp_t cu_status = {0};
+char cu_outbuf[CU_BUF_SIZE] = {0};
 
+int mac_rlc_cu_recv(char * buf, unsigned int len) {
+  sp_head * head;
+
+  if(sp_identify_head(&head, buf, len)) {
+    return 0;
+  }
+
+  /* Send it back. */
+  switch(head->type) {
+    case S_PROTO_MR_STATUS_REQ:
+      // To call mac_rlc_status_ind function here with the received arguments from DU
+      // cu_status = mac_rlc_status_ind(received arguments);
+      mac_rlc_status_reply(head, buf, len);
+      break;
+    default:
+      cu_send(buf, len);
+      /* Do nothing... */
+  }
   return 0;
 }
+
+int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
+    int blen;
+    spmr_sreq *status_request;
+    spmr_srep status_reply;
+
+    if(sp_mr_identify_sreq(&status_request, buf, len)) {
+      return -1;
+    }
+
+    status_reply.rnti    = status_request->rnti;
+    status_reply.frame   = status_request->frame;
+    status_reply.channel = status_request->channel;
+    status_reply.tb_size = status_request->tb_size;
+
+    status_reply.bytes   = cu_status.bytes_in_buffer;
+    status_reply.pdus    = cu_status.pdus_in_buffer;
+    status_reply.creation_time = cu_status.head_sdu_creation_time;
+    status_reply.remaining_bytes = cu_status.head_sdu_remaining_size_to_send;
+    status_reply.segmented = cu_status.head_sdu_is_segmented;
+
+    head->type    = S_PROTO_MR_STATUS_REP;
+    head->len     = sizeof(sp_head) + sizeof(spmr_srep);
+
+    sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
+    blen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);
+
+    cu_send(cu_outbuf, blen);
+    return 0;
+}
+
 #endif /* SPLIT_MAC_RLC_CU */
 
 /*
  * This area is valid only if DU profile is enabled.
  */
 #ifdef SPLIT_MAC_RLC_DU
-int mac_rlc_du_recv(char * buf, unsigned int len) {
-  mr_stat_ind_epilogue();
 
-  /* Do nothing... */
+int arrived = 1;
+
+int mac_rlc_du_recv(char * buf, unsigned int len) {
+  
+  sp_head * head;
+  if(sp_identify_head(&head, buf, len)) {
+    return 0;
+  }
+  
+  switch(head->type) {
+    case S_PROTO_MR_STATUS_REP:
+      mr_stat_status_epilogue();
+      // return the function here
+      arrived = 1;
+      break;
+    default:
+      mr_stat_ind_epilogue();
+      arrived = 1;
+      /* Do nothing... */
+  }
   return 0;
 }
+
 #endif /* SPLIT_MAC_RLC_DU */
 
 #endif /* SPLIT_MAC_RLC_CU || SPLIT_MAC_RLC_DU*/
@@ -383,6 +446,32 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   const tb_size_t         tb_sizeP)
 {
   //-----------------------------------------------------------------------------
+#ifdef SPLIT_MAC_RLC_DU
+  
+  
+  arrived = 0;
+  sp_head   status_header;
+  spmr_sreq status_request;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;
+  
+  status_header.type    = S_PROTO_MR_STATUS_REQ;
+  status_header.vers    = 1;
+  status_header.len     = sizeof(spmr_sreq);
+
+  status_request.rnti = rntiP;
+  status_request.frame = frameP;
+  status_request.channel = channel_idP;
+  status_request.tb_size = tb_sizeP;
+
+  sp_pack_head(&status_header, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_sreq(&status_request, buf, DU_BUF_SIZE);
+  
+  mr_stat_status_prologue();
+  du_send(buf, buflen);
+
+#endif
+
   mac_rlc_status_resp_t  mac_rlc_status_resp;
   struct mac_status_ind  tx_status;
   struct mac_status_resp status_resp;
