@@ -113,6 +113,7 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
 #ifdef SPLIT_MAC_RLC_DU
 
 int arrived = 1;
+int du_status_arrived = 1;
 
 int mac_rlc_du_recv(char * buf, unsigned int len) {
   
@@ -125,7 +126,7 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
     case S_PROTO_MR_STATUS_REP:
       mr_stat_status_epilogue();
       // return the function here
-      arrived = 1;
+      du_status_arrived = 1;
       break;
     default:
       mr_stat_ind_epilogue();
@@ -449,7 +450,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
 #ifdef SPLIT_MAC_RLC_DU
   
   
-  arrived = 0;
+  du_status_arrived = 0;
   sp_head   status_header;
   spmr_sreq status_request;
   char buf[DU_BUF_SIZE] = {0};
