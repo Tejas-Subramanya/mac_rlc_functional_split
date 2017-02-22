@@ -39,6 +39,8 @@ enum split_proto_message_types {
 	S_PROTO_MR_DATA_REQ,
 	/* Data request reply type. */
 	S_PROTO_MR_DATA_REQ_REP,
+	/* Data Ind type. */
+	S_PROTO_MR_DATA_IND,
 };
 
 /* Main header of this protocols. */

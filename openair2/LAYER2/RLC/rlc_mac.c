@@ -76,6 +76,11 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
       // cu_data_req = mac_rlc_data_req(received arguments);
       mac_rlc_data_req_reply(head, buf, len);
       break;
+    case S_PROTO_MR_DATA_IND:
+      // To call mac_rlc_data_ind function here with the received arguments from DU
+      // mac_rlc_data_ind(received arguments);
+      mr_stat_ind_epilogue();
+      break;
     default:
       cu_send(buf, len);
       /* Do nothing... */
@@ -408,18 +413,31 @@ void mac_rlc_data_ind     (
   crc_t                    *crcs_pP)
 {
   //-----------------------------------------------------------------------------
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+  sp_head data_ind_header;
+  spmr_ireq data_indication;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
   
-  struct mac_data_req    data_request;
-  rb_id_t                rb_id           = 0;
-  rlc_mode_t             rlc_mode        = RLC_MODE_NONE;
-  rlc_mbms_id_t         *mbms_id_p       = NULL;
-  rlc_union_t           *rlc_union_p     = NULL;
-  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
-  hashtable_rc_t         h_rc;
-  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
-  tbs_size_t             ret_tb_size         = 0;
+  data_ind_header.type = S_PROTO_MR_DATA_IND;
+  data_ind_header.vers = 1;
+  data_ind_header.len = sizeof(spmr_ireq);
   
+  data_indication.rnti = rntiP;
+  data_indication.frame = frameP;
+  data_indication.channel = channel_idP;
+  data_indication.data = buffer_pP[0];
   
+  sp_pack_head(&data_ind_header, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_ireq(&data_indication, buf, DU_BUF_SIZE);
+
+  mr_stat_ind_prologue();
+  du_send(buf, buflen);
+
+#endif
+
   rb_id_t                rb_id      = 0;
   rlc_mode_t             rlc_mode   = RLC_MODE_NONE;
   rlc_mbms_id_t         *mbms_id_p  = NULL;
