@@ -79,6 +79,7 @@ void mr_stat_req_prologue() {
 
 void mr_stat_req_epilogue() {
 	clock_gettime(CLOCK_REALTIME, &req_finish);
+	printf("Print stats for 'Data_req&rep messages\n");
 }
 
 /*

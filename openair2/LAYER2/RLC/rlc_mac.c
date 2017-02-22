@@ -54,6 +54,9 @@
 mac_rlc_status_resp_t cu_status = {0};
 char cu_outbuf[CU_BUF_SIZE] = {0};
 
+char cu_data_req = 'A';
+char cu_outbuf_dreq[CU_BUF_SIZE] = {0};
+
 int mac_rlc_cu_recv(char * buf, unsigned int len) {
   sp_head * head;
 
@@ -67,6 +70,11 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
       // To call mac_rlc_status_ind function here with the received arguments from DU
       // cu_status = mac_rlc_status_ind(received arguments);
       mac_rlc_status_reply(head, buf, len);
+      break;
+    case S_PROTO_MR_DATA_REQ:
+      // To call mac_rlc_data_req function here with the received arguments from DU
+      // cu_data_req = mac_rlc_data_req(received arguments);
+      mac_rlc_data_req_reply(head, buf, len);
       break;
     default:
       cu_send(buf, len);
@@ -105,6 +113,31 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
     return 0;
 }
 
+int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
+    int blen;
+    spmr_dreq *data_request;
+    spmr_drep data_reply;
+
+    if(sp_mr_identify_dreq(&data_request, buf, len)) {
+      return -1;
+    }
+
+    data_reply.rnti    = data_request->rnti;
+    data_reply.frame   = data_request->frame;
+    data_reply.channel = data_request->channel;
+
+    data_reply.data = cu_data_req;
+
+    head->type    = S_PROTO_MR_DATA_REQ_REP;
+    head->len     = sizeof(sp_head) + sizeof(spmr_drep);
+
+    sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
+    blen = sp_mr_pack_drep(&data_reply, cu_outbuf_dreq, CU_BUF_SIZE);
+
+    cu_send(cu_outbuf_dreq, blen);
+    return 0;
+}
+
 #endif /* SPLIT_MAC_RLC_CU */
 
 /*
@@ -114,6 +147,7 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
 
 int arrived = 1;
 int du_status_arrived = 1;
+int du_data_arrived = 1;
 
 int mac_rlc_du_recv(char * buf, unsigned int len) {
   
@@ -127,6 +161,11 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
       mr_stat_status_epilogue();
       // return the function here
       du_status_arrived = 1;
+      break;
+    case S_PROTO_MR_DATA_REQ_REP:
+      mr_stat_req_epilogue();
+      // return the unction here
+      du_data_arrived = 1;
       break;
     default:
       mr_stat_ind_epilogue();
@@ -235,6 +274,31 @@ tbs_size_t mac_rlc_data_req(
   char             *buffer_pP)
 {
   //-----------------------------------------------------------------------------
+#if defined(SPLIT_MAC_RLC_DU)
+
+  du_data_arrived = 0;
+
+  sp_head data_req_header;
+  spmr_dreq data_req;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
+  
+  data_req_header.type = S_PROTO_MR_DATA_REQ;
+  data_req_header.vers = 1;
+  data_req_header.len = sizeof(spmr_dreq);
+  
+  data_req.rnti = rntiP;
+  data_req.frame = frameP;
+  data_req.channel = channel_idP;
+  
+  sp_pack_head(&data_req_header, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_dreq(&data_req, buf, DU_BUF_SIZE);
+
+  mr_stat_req_prologue();
+  du_send(buf, buflen);
+
+#endif
+
   struct mac_data_req    data_request;
   rb_id_t                rb_id           = 0;
   rlc_mode_t             rlc_mode        = RLC_MODE_NONE;
@@ -344,6 +408,18 @@ void mac_rlc_data_ind     (
   crc_t                    *crcs_pP)
 {
   //-----------------------------------------------------------------------------
+  
+  struct mac_data_req    data_request;
+  rb_id_t                rb_id           = 0;
+  rlc_mode_t             rlc_mode        = RLC_MODE_NONE;
+  rlc_mbms_id_t         *mbms_id_p       = NULL;
+  rlc_union_t           *rlc_union_p     = NULL;
+  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
+  hashtable_rc_t         h_rc;
+  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
+  tbs_size_t             ret_tb_size         = 0;
+  
+  
   rb_id_t                rb_id      = 0;
   rlc_mode_t             rlc_mode   = RLC_MODE_NONE;
   rlc_mbms_id_t         *mbms_id_p  = NULL;
@@ -448,7 +524,6 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
 {
   //-----------------------------------------------------------------------------
 #ifdef SPLIT_MAC_RLC_DU
-  
   
   du_status_arrived = 0;
   sp_head   status_header;
