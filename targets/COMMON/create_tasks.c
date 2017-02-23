@@ -172,7 +172,7 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
         return -1;
       }
 
-      pthread_create(&dummy_t, 0, dummy_loop, 0);
+      //pthread_create(&dummy_t, 0, dummy_loop, 0);
     }
 #endif
   }

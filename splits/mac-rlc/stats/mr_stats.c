@@ -31,6 +31,8 @@
  */
 
 #define MR_STAT_IND_SHOW
+#define MR_STAT_REQ_SHOW
+#define MR_STAT_STATUS_SHOW
 
 struct timespec ind_start  = {0};
 struct timespec ind_finish = {0};
@@ -73,13 +75,32 @@ void mr_stat_ind_epilogue() {
 struct timespec req_start  = {0};
 struct timespec req_finish = {0};
 
+
+uint64_t        req_rtt_count = 0;
+uint64_t        req_rtt_total = 0;
+
 void mr_stat_req_prologue() {
 	clock_gettime(CLOCK_REALTIME, &req_start);
 }
 
 void mr_stat_req_epilogue() {
+	long int e;	
 	clock_gettime(CLOCK_REALTIME, &req_finish);
-	printf("Print stats for 'Data_req&rep messages\n");
+	e = ts_nsec(req_finish) - ts_nsec(req_start);
+
+	req_rtt_count++;
+	req_rtt_total += e;
+
+#ifdef MR_STAT_REQ_SHOW
+	printf("MAC-RLC data request statistics:\n"
+		"    Cycles:           %d\n"
+		"    Avg running time: %.3f usec\n"
+		"    Number of messages exchanged: %d\n",
+		req_rtt_total,
+		((float)req_rtt_total / (float)req_rtt_count),
+		req_rtt_count);
+
+#endif
 }
 
 /*
@@ -89,11 +110,29 @@ void mr_stat_req_epilogue() {
 struct timespec status_start  = {0};
 struct timespec status_finish = {0};
 
+uint64_t        status_rtt_count = 0;
+uint64_t        status_rtt_total = 0;
+
 void mr_stat_status_prologue() {
 	clock_gettime(CLOCK_REALTIME, &status_start);
 }
 
 void mr_stat_status_epilogue() {
+	long int e;
 	clock_gettime(CLOCK_REALTIME, &status_finish);
-        printf("Print stats for 'status_req&rep' messages\n");
+	e = ts_nsec(status_finish) - ts_nsec(status_start);
+
+	status_rtt_count++;
+	status_rtt_total += e;
+
+#ifdef MR_STAT_STATUS_SHOW
+	printf("MAC-RLC status ind statistics:\n"
+		"    Cycles:           %d\n"
+		"    Avg running time: %.3f usec\n"
+		"    Number of messages exchanged: %d\n",
+		status_rtt_total,
+		((float)status_rtt_total / (float)status_rtt_count),
+		status_rtt_count);
+
+#endif
 }
