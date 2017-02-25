@@ -28,6 +28,7 @@ extern int du_status_arrived;
 extern spmr_srep du_status_data;
 extern int du_data_arrived;
 extern spmr_drep du_data_reply;
+extern int du_rrc_data_arrived;
 #endif
 
 #if defined(ENABLE_ITTI)

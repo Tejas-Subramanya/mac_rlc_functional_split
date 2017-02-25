@@ -25,6 +25,11 @@
   AUTHOR  : Lionel GAUTHIER
   COMPANY : EURECOM
   EMAIL   : Lionel.Gauthier@eurecom.fr
+  
+  CO-AUTHORS : Tejas Subramanya and Kewin Rausch
+  COMPANY    : FBK CREATE-NET
+  EMAIL      : t.subramanya@fbk.eu; kewin.rausch@fbk.eu 
+  Description: MAC-RLC functional split
 */
 
 //-----------------------------------------------------------------------------
@@ -57,6 +62,9 @@ char cu_outbuf[CU_BUF_SIZE] = {0};
 char cu_data_req = 'A';
 char cu_outbuf_dreq[CU_BUF_SIZE] = {0};
 
+char cu_rrc_data_req = 'R';
+char cu_outbuf_rrc_dreq[CU_BUF_SIZE] = {0};
+
 int mac_rlc_cu_recv(char * buf, unsigned int len) {
   sp_head * head;
 
@@ -79,68 +87,103 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
     case S_PROTO_MR_DATA_IND:
       // To call mac_rlc_data_ind function here with the received arguments from DU
       // mac_rlc_data_ind(received arguments);
-      mr_stat_ind_epilogue();
+      cu_send(buf, len); //Used only for stat collection
+      break;	
+    case S_PROTO_MR_RRC_DATA_REQ:
+      // To call mac_rrc_data_req function here with the received arguments from DU
+      // mac_rrc_data_req(received arguments);
+      mac_rrc_data_req_reply(head, buf, len);
       break;
+    case S_PROTO_MR_RRC_DATA_IND:
+      // To call mac_rrc_data_ind function here with the received arguments from DU
+      // mac_rrc_data_ind(received arguments);
+      cu_send(buf, len); //Used only for stat collection
+      break;	
     default:
-      cu_send(buf, len);
+      //cu_send(buf, len);
       /* Do nothing... */
+      break;
   }
   return 0;
 }
 
 int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
-    int blen;
-    spmr_sreq *status_request;
-    spmr_srep status_reply;
+  int blen;
+  spmr_sreq *status_request;
+  spmr_srep status_reply;
 
-    if(sp_mr_identify_sreq(&status_request, buf, len)) {
-      return -1;
-    }
+  if(sp_mr_identify_sreq(&status_request, buf, len)) {
+    return -1;
+  }
 
-    status_reply.rnti    = status_request->rnti;
-    status_reply.frame   = status_request->frame;
-    status_reply.channel = status_request->channel;
-    status_reply.tb_size = status_request->tb_size;
+  status_reply.rnti    = status_request->rnti;
+  status_reply.frame   = status_request->frame;
+  status_reply.channel = status_request->channel;
+  status_reply.tb_size = status_request->tb_size;
 
-    status_reply.bytes   = cu_status.bytes_in_buffer;
-    status_reply.pdus    = cu_status.pdus_in_buffer;
-    status_reply.creation_time = cu_status.head_sdu_creation_time;
-    status_reply.remaining_bytes = cu_status.head_sdu_remaining_size_to_send;
-    status_reply.segmented = cu_status.head_sdu_is_segmented;
+  status_reply.bytes   = cu_status.bytes_in_buffer;
+  status_reply.pdus    = cu_status.pdus_in_buffer;
+  status_reply.creation_time = cu_status.head_sdu_creation_time;
+  status_reply.remaining_bytes = cu_status.head_sdu_remaining_size_to_send;
+  status_reply.segmented = cu_status.head_sdu_is_segmented;
 
-    head->type    = S_PROTO_MR_STATUS_REP;
-    head->len     = sizeof(sp_head) + sizeof(spmr_srep);
+  head->type    = S_PROTO_MR_STATUS_REP;
+  head->len     = sizeof(sp_head) + sizeof(spmr_srep);
 
-    sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
-    blen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);
+  sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
+  blen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);
 
-    cu_send(cu_outbuf, blen);
-    return 0;
+  cu_send(cu_outbuf, blen);
+  return 0;
 }
 
 int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
-    int blen;
-    spmr_dreq *data_request;
-    spmr_drep data_reply;
+  int blen;
+  spmr_dreq *data_request;
+  spmr_drep data_reply;
 
-    if(sp_mr_identify_dreq(&data_request, buf, len)) {
-      return -1;
-    }
+  if(sp_mr_identify_dreq(&data_request, buf, len)) {
+    return -1;
+  }
 
-    data_reply.rnti    = data_request->rnti;
-    data_reply.frame   = data_request->frame;
-    data_reply.channel = data_request->channel;
+  data_reply.rnti    = data_request->rnti;
+  data_reply.frame   = data_request->frame;
+  data_reply.channel = data_request->channel;
 
-    data_reply.data = cu_data_req;
+  data_reply.data = cu_data_req;
 
-    head->type    = S_PROTO_MR_DATA_REQ_REP;
-    head->len     = sizeof(sp_head) + sizeof(spmr_drep);
+  head->type    = S_PROTO_MR_DATA_REQ_REP;
+  head->len     = sizeof(sp_head) + sizeof(spmr_drep);
 
-    sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
-    blen = sp_mr_pack_drep(&data_reply, cu_outbuf_dreq, CU_BUF_SIZE);
+  sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
+  blen = sp_mr_pack_drep(&data_reply, cu_outbuf_dreq, CU_BUF_SIZE);
 
-    cu_send(cu_outbuf_dreq, blen);
-    return 0;
+  cu_send(cu_outbuf_dreq, blen);
+  return 0;
+}
+
+int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
+  int blen;
+  spmr_rrc_dreq *data_request;
+  spmr_rrc_drep data_reply;
+
+  if(sp_mr_identify_rrc_dreq(&data_request, buf, len)) {
+    return -1;
+  }
+
+  data_reply.frame    = data_request->frame;
+  data_reply.srb_id   = data_request->srb_id;
+
+  data_reply.data = cu_rrc_data_req;
+
+  head->type    = S_PROTO_MR_RRC_DATA_REQ_REP;
+  head->len     = sizeof(sp_head) + sizeof(spmr_rrc_drep);
+
+  sp_pack_head(head, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
+  blen = sp_mr_pack_rrc_drep(&data_reply, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
+
+  cu_send(cu_outbuf_rrc_dreq, blen);
+  return 0;
 }
 
 #endif /* SPLIT_MAC_RLC_CU */
@@ -153,6 +196,7 @@ int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
 int arrived = 1;
 int du_status_arrived = 1;
 int du_data_arrived = 1;
+int du_rrc_data_arrived = 1;
 
 int mac_rlc_du_recv(char * buf, unsigned int len) {
   
@@ -163,19 +207,32 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
   
   switch(head->type) {
     case S_PROTO_MR_STATUS_REP:
-      mr_stat_status_epilogue();
+      mr_stat_status_epilogue((uint32_t)len);
       // return the function here
       du_status_arrived = 1;
       break;
     case S_PROTO_MR_DATA_REQ_REP:
-      mr_stat_req_epilogue();
-      // return the unction here
+      mr_stat_req_epilogue((uint32_t)len);
+      // return the function here
       du_data_arrived = 1;
       break;
-    default:
+    // Used only for stat collection
+    case S_PROTO_MR_DATA_IND:
       mr_stat_ind_epilogue();
+      break;
+    case S_PROTO_MR_RRC_DATA_REQ_REP:
+      mr_stat_rrc_req_epilogue((uint32_t)len);
+      // return the function here
+      du_rrc_data_arrived = 1;
+      break;
+    case S_PROTO_MR_RRC_DATA_IND:
+      mr_stat_rrc_ind_epilogue();
+      break;
+    default:
+      //mr_stat_ind_epilogue();
       arrived = 1;
       /* Do nothing... */
+      break;
   }
   return 0;
 }
@@ -279,6 +336,18 @@ tbs_size_t mac_rlc_data_req(
   char             *buffer_pP)
 {
   //-----------------------------------------------------------------------------
+
+  struct mac_data_req    data_request;
+  rb_id_t                rb_id           = 0;
+  rlc_mode_t             rlc_mode        = RLC_MODE_NONE;
+  rlc_mbms_id_t         *mbms_id_p       = NULL;
+  rlc_union_t           *rlc_union_p     = NULL;
+  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
+  hashtable_rc_t         h_rc;
+  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
+  tbs_size_t             ret_tb_size         = 0;
+  protocol_ctxt_t     ctxt;
+
 #if defined(SPLIT_MAC_RLC_DU)
 
   du_data_arrived = 0;
@@ -299,21 +368,10 @@ tbs_size_t mac_rlc_data_req(
   sp_pack_head(&data_req_header, buf, DU_BUF_SIZE);
   buflen = sp_mr_pack_dreq(&data_req, buf, DU_BUF_SIZE);
 
-  mr_stat_req_prologue();
-  du_send(buf, buflen);
-
+  if(du_send(buf, buflen)) {   
+    mr_stat_req_prologue((uint32_t)buflen);
+  }
 #endif
-
-  struct mac_data_req    data_request;
-  rb_id_t                rb_id           = 0;
-  rlc_mode_t             rlc_mode        = RLC_MODE_NONE;
-  rlc_mbms_id_t         *mbms_id_p       = NULL;
-  rlc_union_t           *rlc_union_p     = NULL;
-  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
-  hashtable_rc_t         h_rc;
-  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
-  tbs_size_t             ret_tb_size         = 0;
-  protocol_ctxt_t     ctxt;
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0,eNB_index);
 
@@ -414,6 +472,15 @@ void mac_rlc_data_ind     (
 {
   //-----------------------------------------------------------------------------
 
+  rb_id_t                rb_id      = 0;
+  rlc_mode_t             rlc_mode   = RLC_MODE_NONE;
+  rlc_mbms_id_t         *mbms_id_p  = NULL;
+  rlc_union_t           *rlc_union_p     = NULL;
+  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
+  hashtable_rc_t         h_rc;
+  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
+  protocol_ctxt_t     ctxt;
+
 #if defined(SPLIT_MAC_RLC_DU)
 
   sp_head data_ind_header;
@@ -433,19 +500,11 @@ void mac_rlc_data_ind     (
   sp_pack_head(&data_ind_header, buf, DU_BUF_SIZE);
   buflen = sp_mr_pack_ireq(&data_indication, buf, DU_BUF_SIZE);
 
-  mr_stat_ind_prologue();
-  du_send(buf, buflen);
+  if(du_send(buf, buflen)) {
+    mr_stat_ind_prologue(buflen);
+  }
 
 #endif
-
-  rb_id_t                rb_id      = 0;
-  rlc_mode_t             rlc_mode   = RLC_MODE_NONE;
-  rlc_mbms_id_t         *mbms_id_p  = NULL;
-  rlc_union_t           *rlc_union_p     = NULL;
-  hash_key_t             key             = HASHTABLE_NOT_A_KEY_VALUE;
-  hashtable_rc_t         h_rc;
-  srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
-  protocol_ctxt_t     ctxt;
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0, eNB_index);
 
@@ -541,14 +600,27 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   const tb_size_t         tb_sizeP)
 {
   //-----------------------------------------------------------------------------
+  mac_rlc_status_resp_t  mac_rlc_status_resp;
+  struct mac_status_ind  tx_status;
+  struct mac_status_resp status_resp;
+  rb_id_t                rb_id       = 0;
+  rlc_mode_t             rlc_mode    = RLC_MODE_NONE;
+  rlc_mbms_id_t         *mbms_id_p   = NULL;
+  rlc_union_t           *rlc_union_p = NULL;
+  hash_key_t             key         = HASHTABLE_NOT_A_KEY_VALUE;
+  hashtable_rc_t         h_rc;
+  srb_flag_t             srb_flag    = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
+  protocol_ctxt_t     ctxt;
+
 #ifdef SPLIT_MAC_RLC_DU
   
-  du_status_arrived = 0;
   sp_head   status_header;
   spmr_sreq status_request;
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;
   
+  du_status_arrived = 0;
+
   status_header.type    = S_PROTO_MR_STATUS_REQ;
   status_header.vers    = 1;
   status_header.len     = sizeof(spmr_sreq);
@@ -561,22 +633,11 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   sp_pack_head(&status_header, buf, DU_BUF_SIZE);
   buflen = sp_mr_pack_sreq(&status_request, buf, DU_BUF_SIZE);
   
-  mr_stat_status_prologue();
-  du_send(buf, buflen);
+  if(du_send(buf, buflen) > 0) {
+	  mr_stat_status_prologue((uint32_t)buflen);
+  }
 
 #endif
-
-  mac_rlc_status_resp_t  mac_rlc_status_resp;
-  struct mac_status_ind  tx_status;
-  struct mac_status_resp status_resp;
-  rb_id_t                rb_id       = 0;
-  rlc_mode_t             rlc_mode    = RLC_MODE_NONE;
-  rlc_mbms_id_t         *mbms_id_p   = NULL;
-  rlc_union_t           *rlc_union_p = NULL;
-  hash_key_t             key         = HASHTABLE_NOT_A_KEY_VALUE;
-  hashtable_rc_t         h_rc;
-  srb_flag_t             srb_flag    = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
-  protocol_ctxt_t     ctxt;
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0, eNB_index);
 

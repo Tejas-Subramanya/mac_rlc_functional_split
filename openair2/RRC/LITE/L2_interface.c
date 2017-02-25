@@ -26,6 +26,11 @@
  * \version 1.0
  * \company Eurecom
  * \email: raymond.knopp@eurecom.fr
+
+  CO-AUTHORS : Tejas Subramanya and Kewin Rausch
+  COMPANY    : FBK CREATE-NET
+  EMAIL      : t.subramanya@fbk.eu; kewin.rausch@fbk.eu 
+  Description: MAC-RLC functional split
  */
 
 #include "platform_types.h"
@@ -40,6 +45,7 @@
 #include "rrc_eNB_UE_context.h"
 #include "pdcp.h"
 #include "msc.h"
+#include "create_tasks.h"
 
 #ifdef PHY_EMUL
 #include "SIMULATION/simulation_defs.h"
@@ -54,6 +60,14 @@ extern UE_MAC_INST *UE_mac_inst;
 
 //#define RRC_DATA_REQ_DEBUG
 #define DEBUG_RRC 1
+
+#    ifdef SPLIT_MAC_RLC_CU
+#        include "mr_cu.h"
+#    endif /* SPLIT_MAC_RLC_CU */
+
+#    ifdef SPLIT_MAC_RLC_DU
+#        include "mr_du.h"
+#    endif /* SPLIT_MAC_RLC_DU */
 
 mui_t mui=0;
 
@@ -74,6 +88,33 @@ mac_rrc_data_req(
 {
   SRB_INFO *Srb_info;
   uint8_t Sdu_size=0;
+
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+  du_rrc_data_arrived = 0;
+
+  sp_head data_req_header;
+  spmr_rrc_dreq data_req;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
+  
+  data_req_header.type = S_PROTO_MR_RRC_DATA_REQ;
+  data_req_header.vers = 1;
+  data_req_header.len = sizeof(spmr_rrc_dreq);
+  
+  data_req.frame = frameP;
+  data_req.srb_id = Srb_id;
+  data_req.num_tb = Nb_tb;
+  
+  sp_pack_head(&data_req_header, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_dreq(&data_req, buf, DU_BUF_SIZE);
+
+  if(du_send(buf, buflen)) {   
+    mr_stat_rrc_req_prologue((uint32_t)buflen);
+  }
+
+#endif
 
 #ifdef DEBUG_RRC
   int i;
@@ -350,6 +391,32 @@ mac_rrc_data_ind(
 
   /* for no gcc warnings */
   (void)sdu_size;
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+  sp_head data_ind_header;
+  spmr_rrc_ireq data_indication;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
+  
+  data_ind_header.type = S_PROTO_MR_RRC_DATA_IND;
+  data_ind_header.vers = 1;
+  data_ind_header.len = sizeof(spmr_rrc_ireq);
+  
+  data_indication.rnti = rntiP;
+  data_indication.frame = frameP;
+  data_indication.subframe = sub_frameP;
+  data_indication.srb_id = srb_idP;
+  data_indication.data = sduP[0];
+  
+  sp_pack_head(&data_ind_header, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_ireq(&data_indication, buf, DU_BUF_SIZE);
+
+  if(du_send(buf, buflen)) {
+    mr_stat_rrc_ind_prologue(buflen);
+  }
+
+#endif
 
   /*
   int si_window;
