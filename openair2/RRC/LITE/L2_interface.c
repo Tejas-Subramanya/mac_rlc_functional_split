@@ -89,6 +89,9 @@ mac_rrc_data_req(
   SRB_INFO *Srb_info;
   uint8_t Sdu_size=0;
 
+/***************************************************************************
+ * Follow Split protocol rules to send 'mac_rrc_data_req' to CU.
+ **************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
 
@@ -391,6 +394,10 @@ mac_rrc_data_ind(
 
   /* for no gcc warnings */
   (void)sdu_size;
+
+/***************************************************************************
+ * Follow Split protocol rules to send 'mac_rrc_data_ind' to CU.
+ **************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
 

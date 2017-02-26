@@ -75,37 +75,41 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
   /* Send it back. */
   switch(head->type) {
     case S_PROTO_MR_STATUS_REQ:
-      // To call mac_rlc_status_ind function here with the received arguments from DU
-      // cu_status = mac_rlc_status_ind(received arguments);
+      /* To call mac_rlc_status_ind function here with the received arguments from DU
+      cu_status = mac_rlc_status_ind(received arguments);*/
       mac_rlc_status_reply(head, buf, len);
       break;
     case S_PROTO_MR_DATA_REQ:
-      // To call mac_rlc_data_req function here with the received arguments from DU
-      // cu_data_req = mac_rlc_data_req(received arguments);
+      /*To call mac_rlc_data_req function here with the received arguments from DU
+      cu_data_req = mac_rlc_data_req(received arguments);*/
       mac_rlc_data_req_reply(head, buf, len);
       break;
     case S_PROTO_MR_DATA_IND:
-      // To call mac_rlc_data_ind function here with the received arguments from DU
-      // mac_rlc_data_ind(received arguments);
-      cu_send(buf, len); //Used only for stat collection
+      /* To call mac_rlc_data_ind function here with the received arguments from DU
+      mac_rlc_data_ind(received arguments);*/
+      cu_send(buf, len); /*Used only for stat collection*/
       break;	
     case S_PROTO_MR_RRC_DATA_REQ:
-      // To call mac_rrc_data_req function here with the received arguments from DU
-      // mac_rrc_data_req(received arguments);
+      /* To call mac_rrc_data_req function here with the received arguments from DU
+      mac_rrc_data_req(received arguments);*/
       mac_rrc_data_req_reply(head, buf, len);
       break;
     case S_PROTO_MR_RRC_DATA_IND:
-      // To call mac_rrc_data_ind function here with the received arguments from DU
-      // mac_rrc_data_ind(received arguments);
-      cu_send(buf, len); //Used only for stat collection
+      /* To call mac_rrc_data_ind function here with the received arguments from DU
+      mac_rrc_data_ind(received arguments);*/
+      cu_send(buf, len); /*Used only for stat collection*/
       break;	
     default:
-      //cu_send(buf, len);
-      /* Do nothing... */
+      /* cu_send(buf, len);
+      Do nothing... */
       break;
   }
   return 0;
 }
+
+/****************************************************************************************
+ ***************** Reply for MAC-RLC Status Ind *****************************************
+ ***************************************************************************************/
 
 int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
@@ -137,6 +141,10 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
   return 0;
 }
 
+/****************************************************************************************
+ ***************** Reply for MAC-RLC Data Req *******************************************
+ ***************************************************************************************/
+
 int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
   spmr_dreq *data_request;
@@ -161,6 +169,10 @@ int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   cu_send(cu_outbuf_dreq, blen);
   return 0;
 }
+
+/****************************************************************************************
+ ***************** Reply for MAC-RRC Data Req *******************************************
+ ***************************************************************************************/
 
 int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
@@ -208,28 +220,28 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
   switch(head->type) {
     case S_PROTO_MR_STATUS_REP:
       mr_stat_status_epilogue((uint32_t)len);
-      // return the function here
+      /* return the function here */
       du_status_arrived = 1;
       break;
     case S_PROTO_MR_DATA_REQ_REP:
       mr_stat_req_epilogue((uint32_t)len);
-      // return the function here
+      /* return the function here */
       du_data_arrived = 1;
       break;
-    // Used only for stat collection
+    /* Used only for stat collection */
     case S_PROTO_MR_DATA_IND:
       mr_stat_ind_epilogue();
       break;
     case S_PROTO_MR_RRC_DATA_REQ_REP:
       mr_stat_rrc_req_epilogue((uint32_t)len);
-      // return the function here
+      /* return the function here*/
       du_rrc_data_arrived = 1;
       break;
     case S_PROTO_MR_RRC_DATA_IND:
       mr_stat_rrc_ind_epilogue();
       break;
     default:
-      //mr_stat_ind_epilogue();
+      /* mr_stat_ind_epilogue(); */
       arrived = 1;
       /* Do nothing... */
       break;
@@ -347,6 +359,10 @@ tbs_size_t mac_rlc_data_req(
   srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
   tbs_size_t             ret_tb_size         = 0;
   protocol_ctxt_t     ctxt;
+
+/***************************************************************************
+ * Follow Split protocol rules to send 'mac_rlc_data_req' to CU.
+ **************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
 
@@ -481,6 +497,10 @@ void mac_rlc_data_ind     (
   srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
   protocol_ctxt_t     ctxt;
 
+/***************************************************************************
+ * Follow Split protocol rules to send 'mac_rlc_data_ind' to CU.
+ **************************************************************************/
+
 #if defined(SPLIT_MAC_RLC_DU)
 
   sp_head data_ind_header;
@@ -611,6 +631,10 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   hashtable_rc_t         h_rc;
   srb_flag_t             srb_flag    = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
   protocol_ctxt_t     ctxt;
+
+/***************************************************************************
+ * Follow Split protocol rules to send 'mac_rlc_status_ind' to CU.
+ **************************************************************************/
 
 #ifdef SPLIT_MAC_RLC_DU
   
