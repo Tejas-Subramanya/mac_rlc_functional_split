@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,81 +26,78 @@
 /* Convert TS structure to milliseconds: */
 #define ts_msec(t)	((t.tv_sec * 1000) + (t.tv_nsec / 1000000))
 
+#define bytes_to_Mb(x)	(((float)x * 8.0) / 1000000.0)
+
+/* One second in ns. */
+#define REP_TIEMOUT	1000000000
+
+/* Ok, these are shared elements used to evaluate how many nsec passed from the
+ * last time we did a reported something.
+ */
+uint64_t        rep_elapsed_nsec = 0;
+struct timespec rep_now          = {0};
+struct timespec rep_last         = {0};
+
+/* Prototype for the reporting procedure. */
+static inline void mr_stat_report(void);
+
 /*
- * Data indicator stuff:
+ * MAC-RLC Data Indicator stuff:
  */
 
-#define MR_STAT_IND_SHOW
-#define MR_STAT_REQ_SHOW
-#define MR_STAT_STATUS_SHOW
+struct timespec data_ind_start  = {0};
+struct timespec data_ind_finish = {0};
 
-struct timespec ind_start  = {0};
-struct timespec ind_finish = {0};
+/* Stats */
+uint64_t        data_ind_count_req = 0;
+uint64_t        data_ind_total = 0;
+uint64_t        data_ind_sent_bytes = 0;
 
-uint64_t        ind_rtt_count = 0;
-uint64_t        ind_rtt_total = 0;
-
-void mr_stat_ind_prologue() {
-	clock_gettime(CLOCK_REALTIME, &ind_start);
+void mr_stat_ind_prologue(uint32_t req_size) {
+	clock_gettime(CLOCK_REALTIME, &data_ind_start);
+        data_ind_sent_bytes += req_size;
+        data_ind_count_req++;
 }
 
 void mr_stat_ind_epilogue() {
-	long int e;
+	clock_gettime(CLOCK_REALTIME, &rep_now);
 
-	clock_gettime(CLOCK_REALTIME, &ind_finish);
-
-	e = ts_nsec(ind_finish) - ts_nsec(ind_start);
-
-	ind_rtt_count++;
-	ind_rtt_total += e;
-
-#ifdef MR_STAT_IND_SHOW
-	if(ind_rtt_count == 1000) {
-		printf("MAC-RLC status indicator statistics:\n"
-			"    Cycles:           %d\n"
-			"    Avg running time: %.3f usec\n",
-			ind_rtt_total,
-			((float)ind_rtt_total / (float)ind_rtt_count) / 1000.0);
-
-		ind_rtt_count = 0;
-		ind_rtt_total = 0;
-	}
-#endif
+	/* Report if it's the right time... */
+	mr_stat_report();
 }
 
 /*
- * Data request stuff:
+ * MAC-RLC Data request stuff:
  */
 
-struct timespec req_start  = {0};
-struct timespec req_finish = {0};
+struct timespec data_req_start  = {0};
+struct timespec data_req_finish = {0};
 
+/* Statistics: */
+uint64_t        data_req_count_res = 0;
+uint64_t        data_req_count_req = 0;
+uint64_t        data_req_total = 0;
+uint64_t        data_req_recv_bytes = 0;
+uint64_t        data_req_sent_bytes = 0;
 
-uint64_t        req_rtt_count = 0;
-uint64_t        req_rtt_total = 0;
-
-void mr_stat_req_prologue() {
-	clock_gettime(CLOCK_REALTIME, &req_start);
+void mr_stat_req_prologue(uint32_t req_size) {
+	clock_gettime(CLOCK_REALTIME, &data_req_start);
+	data_req_sent_bytes += req_size;
+	data_req_count_req++;
 }
 
-void mr_stat_req_epilogue() {
-	long int e;	
-	clock_gettime(CLOCK_REALTIME, &req_finish);
-	e = ts_nsec(req_finish) - ts_nsec(req_start);
+void mr_stat_req_epilogue(uint32_t res_size) {
+	long int e;
 
-	req_rtt_count++;
-	req_rtt_total += e;
+	clock_gettime(CLOCK_REALTIME, &data_req_finish);
+	e = ts_nsec(data_req_finish) - ts_nsec(data_req_start);
 
-#ifdef MR_STAT_REQ_SHOW
-	printf("MAC-RLC data request statistics:\n"
-		"    Cycles:           %d\n"
-		"    Avg running time: %.3f usec\n"
-		"    Number of messages exchanged: %d\n",
-		req_rtt_total,
-		((float)req_rtt_total / (float)req_rtt_count),
-		req_rtt_count);
+	data_req_count_res++;
+	data_req_total += e;
+	data_req_recv_bytes += res_size;
 
-#endif
+	/* Report if it's the right time... */
+	mr_stat_report();
 }
 
 /*
@@ -110,29 +107,200 @@ void mr_stat_req_epilogue() {
 struct timespec status_start  = {0};
 struct timespec status_finish = {0};
 
-uint64_t        status_rtt_count = 0;
-uint64_t        status_rtt_total = 0;
+/* Statistics: */
+uint64_t        status_count_res = 0;
+uint64_t        status_count_req = 0;
+uint64_t        status_total = 0;
+uint64_t        status_recv_bytes = 0;
+uint64_t        status_sent_bytes = 0;
 
-void mr_stat_status_prologue() {
+void mr_stat_status_prologue(uint32_t req_size) {
 	clock_gettime(CLOCK_REALTIME, &status_start);
+	status_sent_bytes += req_size;
+	status_count_req++;
 }
 
-void mr_stat_status_epilogue() {
+void mr_stat_status_epilogue(uint32_t res_size) {
+
 	long int e;
+
 	clock_gettime(CLOCK_REALTIME, &status_finish);
 	e = ts_nsec(status_finish) - ts_nsec(status_start);
 
-	status_rtt_count++;
-	status_rtt_total += e;
+	status_count_res++;
+	status_total += e;
+	status_recv_bytes += res_size;
 
-#ifdef MR_STAT_STATUS_SHOW
-	printf("MAC-RLC status ind statistics:\n"
-		"    Cycles:           %d\n"
-		"    Avg running time: %.3f usec\n"
-		"    Number of messages exchanged: %d\n",
-		status_rtt_total,
-		((float)status_rtt_total / (float)status_rtt_count),
-		status_rtt_count);
+	/* Report if it's the right time... */
+	mr_stat_report();
+}
 
-#endif
+/*
+ * MAC-RRC Data request stuff:
+ */
+
+struct timespec mr_stat_rrc_req_start  = {0};
+struct timespec mr_stat_rrc_req_finish = {0};
+
+/* Statistics: */
+uint64_t        mr_stat_rrc_req_count_res = 0;
+uint64_t        mr_stat_rrc_req_count_req = 0;
+uint64_t        mr_stat_rrc_req_total = 0;
+uint64_t        mr_stat_rrc_req_recv_bytes = 0;
+uint64_t        mr_stat_rrc_req_sent_bytes = 0;
+
+void mr_stat_rrc_req_prologue(uint32_t req_size) {
+	clock_gettime(CLOCK_REALTIME, &mr_stat_rrc_req_start);
+	mr_stat_rrc_req_sent_bytes += req_size;
+	mr_stat_rrc_req_count_req++;
+}
+
+void mr_stat_rrc_req_epilogue(uint32_t res_size) {
+	long int e;
+
+	clock_gettime(CLOCK_REALTIME, &mr_stat_rrc_req_finish);
+	e = ts_nsec(mr_stat_rrc_req_finish) - ts_nsec(mr_stat_rrc_req_start);
+
+	mr_stat_rrc_req_count_res++;
+	mr_stat_rrc_req_total += e;
+	mr_stat_rrc_req_recv_bytes += res_size;
+
+	/* Report if it's the right time... */
+	mr_stat_report();
+}
+
+/*
+ * MAC-RRC Data Indicator stuff:
+ */
+
+struct timespec mr_stat_rrc_ind_start  = {0};
+struct timespec mr_stat_rrc_ind_finish = {0};
+
+/* Stats */
+uint64_t        mr_stat_rrc_ind_count_req = 0;
+uint64_t        mr_stat_rrc_ind_total = 0;
+uint64_t        mr_stat_rrc_ind_sent_bytes = 0;
+
+void mr_stat_rrc_ind_prologue(uint32_t req_size) {
+	clock_gettime(CLOCK_REALTIME, &mr_stat_rrc_ind_start);
+	mr_stat_rrc_ind_sent_bytes += req_size;
+	mr_stat_rrc_ind_count_req++;
+}
+
+void mr_stat_rrc_ind_epilogue() {
+	/* Report if it's the right time... */
+	mr_stat_report();
+}
+
+/* The actual reporting procedure.
+ *
+ * MULTITHREADING NOTE: This procedure will be called by mainly by DU receiver
+ * worker thread, and so the threading context is already considered safe. In
+ * case where multiple workers are introduced, the data must be protected with
+ * a lock that can be defined privately in this code sheet.
+ */
+static inline void mr_stat_report(void) {
+	if(ts_nsec(rep_now) - ts_nsec(rep_last) > REP_TIEMOUT) {
+		/*
+		 * Dump all the statistics at once:
+		 */
+
+		printf(
+"***************************************************************************\n"
+"MAC-RLC split collected statistics:\n"
+"   Elapsed time: %.3f ms\n"
+"   DATA IND   Requests=%-10llu Responses=%-10llu Avg.RTT(usec)=%-10.3f "
+"sent=%-10llu recv=%-10llu\n"
+"   DATA REQ   Requests=%-10llu Responses=%-10llu Avg.RTT(usec)=%-10.3f "
+"sent=%-10llu recv=%-10llu\n"
+"   STATUS IND Requests=%-10llu Responses=%-10llu Avg.RTT(usec)=%-10.3f "
+"sent=%-10llu recv=%-10llu\n"
+"   RRC IND    Requests=%-10llu Responses=%-10llu Avg.RTT(usec)=%-10.3f "
+"sent=%-10llu recv=%-10llu\n"
+"   RRC REQ    Requests=%-10llu Responses=%-10llu Avg.RTT(usec)=%-10.3f "
+"sent=%-10llu recv=%-10llu\n"
+"***************************************************************************\n",
+			/*
+			 * Time elapsed from last report:
+			 */
+			(float)(ts_nsec(rep_now) - ts_nsec(rep_last)) /
+				1000000.0,
+			/*
+			 * Data indicator:
+			 */
+			data_ind_count_req,
+			0ULL,
+			0.0,
+			data_ind_sent_bytes,
+			0ULL,
+			/*
+			 * Data requests:
+			 */
+			data_req_count_req,
+			data_req_count_res,
+			(float)data_req_total / (float)data_req_count_res /
+				1000.0,
+			data_req_sent_bytes,
+			data_req_recv_bytes,
+			/*
+			 * Status indicator:
+			 */
+			status_count_req,
+			status_count_res,
+			(float)status_total / (float)status_count_res / 1000.0,
+			status_sent_bytes,
+			status_recv_bytes,
+			/*
+			 * RRC request:
+			 */
+			mr_stat_rrc_ind_count_req,
+			0ULL,
+			0.0,
+			mr_stat_rrc_ind_sent_bytes,
+			0ULL,
+			/*
+			 * RRC indicator:
+			 */
+			mr_stat_rrc_req_count_req,
+			mr_stat_rrc_req_count_res,
+			(float)mr_stat_rrc_req_total /
+				(float)mr_stat_rrc_req_count_res / 1000.0,
+			mr_stat_rrc_req_sent_bytes,
+			mr_stat_rrc_req_recv_bytes);
+
+		/*
+		 * Variables reset for the next run:
+		 */
+
+		data_ind_count_req          = 0;
+		data_ind_sent_bytes         = 0;
+
+		data_req_total              = 0;
+		data_req_count_res          = 0;
+		data_req_count_req          = 0;
+		data_req_recv_bytes         = 0;
+		data_req_sent_bytes         = 0;
+
+		status_total                = 0;
+		status_count_res            = 0;
+		status_count_req            = 0;
+		status_recv_bytes           = 0;
+		status_sent_bytes           = 0;
+
+		mr_stat_rrc_req_total       = 0;
+		mr_stat_rrc_req_count_res   = 0;
+		mr_stat_rrc_req_count_req   = 0;
+		mr_stat_rrc_req_recv_bytes  = 0;
+		mr_stat_rrc_req_sent_bytes  = 0;
+
+		mr_stat_rrc_ind_count_req   = 0;
+		mr_stat_rrc_ind_sent_bytes  = 0;
+
+		/*
+		 * Remember when you last performed report:
+		 */
+
+		rep_last.tv_sec  = rep_now.tv_sec;
+		rep_last.tv_nsec = rep_now.tv_nsec;
+	}
 }

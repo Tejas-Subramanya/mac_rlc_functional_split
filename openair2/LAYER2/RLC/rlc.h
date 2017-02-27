@@ -57,10 +57,12 @@
 
 #    ifdef SPLIT_MAC_RLC_CU
 #        include "mr_cu.h"
+#        include "mr_stats.h"
 #    endif /* SPLIT_MAC_RLC_CU */
 
 #    ifdef SPLIT_MAC_RLC_DU
 #        include "mr_du.h"
+#        include "mr_stats.h"
 #    endif /* SPLIT_MAC_RLC_DU */
 
 #ifdef Rel10

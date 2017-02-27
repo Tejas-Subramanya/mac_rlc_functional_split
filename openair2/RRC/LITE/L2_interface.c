@@ -94,9 +94,6 @@ mac_rrc_data_req(
  **************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-
-  du_rrc_data_arrived = 0;
-
   sp_head data_req_header;
   spmr_rrc_dreq data_req;
   char buf[DU_BUF_SIZE] = {0};

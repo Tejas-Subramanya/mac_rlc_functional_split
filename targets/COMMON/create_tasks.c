@@ -53,19 +53,6 @@
 # endif
 # include "enb_app.h"
 
-#ifdef SPLIT_MAC_RLC_DU
-void * dummy_loop(void * args) {
-  char data[1024];
-
-  while(1) {
-    mr_stat_ind_prologue();
-    du_send(data, 1024);
-
-    usleep(1000);
-  }
-}
-#endif
-
 int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 {
   itti_wait_ready(1);
@@ -171,8 +158,6 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
         LOG_E(SPLIT_MAC_RLC_DU, "Create thread for SPLIT MACRLC DU failed\n");
         return -1;
       }
-
-      //pthread_create(&dummy_t, 0, dummy_loop, 0);
     }
 #endif
   }

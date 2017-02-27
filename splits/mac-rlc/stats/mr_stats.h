@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,40 @@
 #ifndef __MR_STATS_H
 #define __MR_STATS_H
 
-/* Data indicator statistic collection procedures.
+/* MAC-RLC Data indicator statistic collection procedures.
  * Prologue: to be invoked just before starting the operations.
  * Epilogue: to be invoked just after ending the operations.
  */
-void mr_stat_ind_prologue(void);
+void mr_stat_ind_prologue(uint32_t req_size);
 void mr_stat_ind_epilogue(void);
 
-/* Data request statistic collection procedures.
+/* MAC-RLC Data request statistic collection procedures.
  * Prologue: to be invoked just before starting the operations.
  * Epilogue: to be invoked just after ending the operations.
  */
-void mr_stat_req_prologue(void);
-void mr_stat_req_epilogue(void);
+void mr_stat_req_prologue(uint32_t req_size);
+void mr_stat_req_epilogue(uint32_t res_size);
 
 /* Status indicator statistic collection procedures.
  * Prologue: to be invoked just before starting the operations.
  * Epilogue: to be invoked just after ending the operations.
  */
-void mr_stat_status_prologue(void);
-void mr_stat_status_epilogue(void);
+void mr_stat_status_prologue(uint32_t req_size);
+void mr_stat_status_epilogue(uint32_t res_size);
+
+/* MAC-RRC Data request statistic collection procedures.
+ * Prologue: to be invoked just before starting the operations.
+ * Epilogue: to be invoked just after ending the operations.
+ */
+
+void mr_stat_rrc_req_prologue(uint32_t req_size);
+void mr_stat_rrc_req_epilogue(uint32_t res_size);
+
+/* MAC-RRC Data indicator statistic collection procedures.
+ * Prologue: to be invoked just before starting the operations.
+ * Epilogue: to be invoked just after ending the operations.
+ */
+void mr_stat_rrc_ind_prologue(uint32_t req_size);
+void mr_stat_rrc_ind_epilogue(void);
 
 #endif /* __MR_STATS_H */

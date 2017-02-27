@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,12 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- *
- *
- * Contributor(s):
- *    Tejas Subramanya
- *    Description: MAC-RRC split protocols for UL and DL
  */
 
 /*
@@ -117,13 +111,14 @@ int sp_mr_identify_drep(spmr_drep ** drep, char * buf, uint32_t len) {
 	return sp_generic_identify((void *)drep, sizeof(sp_head), buf, len);
 }
 
-
 int sp_mr_pack_rrc_dreq(spmr_rrc_dreq * rrc_dreq, char * buf, uint32_t len) {
 	return sp_generic_pack(
 		rrc_dreq, sizeof(sp_head), sizeof(spmr_rrc_dreq), buf, len);
 }
 
-int sp_mr_identify_rrc_dreq(spmr_rrc_dreq ** rrc_dreq, char * buf, uint32_t len) {
+int sp_mr_identify_rrc_dreq(
+	spmr_rrc_dreq ** rrc_dreq, char * buf, uint32_t len) {
+
 	return sp_generic_identify((void *)rrc_dreq, sizeof(sp_head), buf, len);
 }
 
@@ -132,7 +127,9 @@ int sp_mr_pack_rrc_drep(spmr_rrc_drep * rrc_drep, char * buf, uint32_t len) {
 		rrc_drep, sizeof(sp_head), sizeof(spmr_rrc_drep), buf, len);
 }
 
-int sp_mr_identify_rrc_drep(spmr_rrc_drep ** rrc_drep, char * buf, uint32_t len) {
+int sp_mr_identify_rrc_drep(
+	spmr_rrc_drep ** rrc_drep, char * buf, uint32_t len) {
+
 	return sp_generic_identify((void *)rrc_drep, sizeof(sp_head), buf, len);
 }
 
@@ -141,6 +138,8 @@ int sp_mr_pack_rrc_ireq(spmr_rrc_ireq * rrc_ireq, char * buf, uint32_t len) {
 		rrc_ireq, sizeof(sp_head), sizeof(spmr_rrc_ireq), buf, len);
 }
 
-int sp_mr_identify_rrc_ireq(spmr_rrc_ireq ** rrc_ireq, char * buf, uint32_t len) {
+int sp_mr_identify_rrc_ireq(
+	spmr_rrc_ireq ** rrc_ireq, char * buf, uint32_t len) {
+
 	return sp_generic_identify((void *)rrc_ireq, sizeof(sp_head), buf, len);
 }

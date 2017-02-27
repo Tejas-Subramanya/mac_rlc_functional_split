@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,12 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
- *
- *
- * Contributor(s):
- *    Tejas Subramanya
- *    Description: MAC-RRC split protocols for UL and DL 
  */
 
 /*
@@ -119,8 +113,8 @@ int sp_mr_identify_ireq(spmr_ireq ** ireq, char * buf, uint32_t len);
  * UL data MAC->RRC
  */
 
-/* MAC-RRC Data indicator provides an indication from MAC to RRC that some data has been 
- * received and must be taken into account by RRC.
+/* MAC-RRC Data indicator provides an indication from MAC to RRC that some data
+ * has been received and must be taken into account by RRC.
  */
 
 typedef struct split_mr_data_indicator_rrc_req {
@@ -147,7 +141,8 @@ int sp_mr_pack_rrc_ireq(spmr_rrc_ireq * rrc_ireq, char * buf, uint32_t len);
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_identify_rrc_ireq(spmr_rrc_ireq ** rrc_ireq, char * buf, uint32_t len);
+int sp_mr_identify_rrc_ireq(
+	spmr_rrc_ireq ** rrc_ireq, char * buf, uint32_t len);
 
 
 typedef struct split_mr_status_request {
@@ -281,7 +276,8 @@ int sp_mr_pack_rrc_dreq(spmr_rrc_dreq * rrc_dreq, char * buf, uint32_t len);
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_identify_rrc_dreq(spmr_rrc_dreq ** rrc_dreq, char * buf, uint32_t len);
+int sp_mr_identify_rrc_dreq(
+	spmr_rrc_dreq ** rrc_dreq, char * buf, uint32_t len);
 
 typedef struct split_mr_rrc_data_reply {
        /* Frame where the request is issued. */
@@ -303,6 +299,11 @@ int sp_mr_pack_rrc_drep(spmr_rrc_drep * rrc_drep, char * buf, uint32_t len);
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_identify_rrc_drep(spmr_rrc_drep ** rrc_drep, char * buf, uint32_t len);
+int sp_mr_identify_rrc_drep(
+	spmr_rrc_drep ** rrc_drep, char * buf, uint32_t len);
+
+/******************************************************************************
+ * End of MAC-RLC split protocol.                                             *
+ ******************************************************************************/
         
 #endif /* __SPLIT_PROTOCOLS_H */

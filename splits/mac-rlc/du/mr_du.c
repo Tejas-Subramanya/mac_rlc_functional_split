@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 
 #ifdef EBUG
 #define DU_DBG(x, ...)			printf(			\
-"--------------------------------------------> DU: "x"\n", ##__VA_ARGS__)
+"[DU] "x"\n", ##__VA_ARGS__)
 #else
 #define DU_DBG(x, ...)
 #endif

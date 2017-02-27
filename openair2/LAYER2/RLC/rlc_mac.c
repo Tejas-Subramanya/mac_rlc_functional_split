@@ -56,6 +56,7 @@
  * This area is valid only if CU profile is enabled.
  */
 #ifdef SPLIT_MAC_RLC_CU
+
 mac_rlc_status_resp_t cu_status = {0};
 char cu_outbuf[CU_BUF_SIZE] = {0};
 
@@ -107,9 +108,9 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
   return 0;
 }
 
-/****************************************************************************************
- ***************** Reply for MAC-RLC Status Ind *****************************************
- ***************************************************************************************/
+/******************************************************************************
+ * Reply for MAC-RLC Status Indicator.                                        *
+ ******************************************************************************/
 
 int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
@@ -141,9 +142,9 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
   return 0;
 }
 
-/****************************************************************************************
- ***************** Reply for MAC-RLC Data Req *******************************************
- ***************************************************************************************/
+/******************************************************************************
+ * Reply for MAC-RLC Data Request.                                            *
+ ******************************************************************************/
 
 int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
@@ -170,9 +171,9 @@ int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   return 0;
 }
 
-/****************************************************************************************
- ***************** Reply for MAC-RRC Data Req *******************************************
- ***************************************************************************************/
+/******************************************************************************
+ * Reply for MAC-RRC Data Request.                                            *
+ ******************************************************************************/
 
 int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen;
@@ -205,11 +206,6 @@ int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
  */
 #ifdef SPLIT_MAC_RLC_DU
 
-int arrived = 1;
-int du_status_arrived = 1;
-int du_data_arrived = 1;
-int du_rrc_data_arrived = 1;
-
 int mac_rlc_du_recv(char * buf, unsigned int len) {
   
   sp_head * head;
@@ -220,13 +216,9 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
   switch(head->type) {
     case S_PROTO_MR_STATUS_REP:
       mr_stat_status_epilogue((uint32_t)len);
-      /* return the function here */
-      du_status_arrived = 1;
       break;
     case S_PROTO_MR_DATA_REQ_REP:
       mr_stat_req_epilogue((uint32_t)len);
-      /* return the function here */
-      du_data_arrived = 1;
       break;
     /* Used only for stat collection */
     case S_PROTO_MR_DATA_IND:
@@ -234,24 +226,20 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
       break;
     case S_PROTO_MR_RRC_DATA_REQ_REP:
       mr_stat_rrc_req_epilogue((uint32_t)len);
-      /* return the function here*/
-      du_rrc_data_arrived = 1;
       break;
     case S_PROTO_MR_RRC_DATA_IND:
       mr_stat_rrc_ind_epilogue();
       break;
     default:
-      /* mr_stat_ind_epilogue(); */
-      arrived = 1;
-      /* Do nothing... */
       break;
   }
+
   return 0;
 }
 
 #endif /* SPLIT_MAC_RLC_DU */
 
-#endif /* SPLIT_MAC_RLC_CU || SPLIT_MAC_RLC_DU*/
+#endif /* SPLIT_MAC_RLC_CU || SPLIT_MAC_RLC_DU */
 
 /******************************************************************************
  * End of MAC-RLC split mechanisms.                                           *
@@ -365,9 +353,6 @@ tbs_size_t mac_rlc_data_req(
  **************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-
-  du_data_arrived = 0;
-
   sp_head data_req_header;
   spmr_dreq data_req;
   char buf[DU_BUF_SIZE] = {0};
@@ -642,8 +627,6 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   spmr_sreq status_request;
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;
-  
-  du_status_arrived = 0;
 
   status_header.type    = S_PROTO_MR_STATUS_REQ;
   status_header.vers    = 1;

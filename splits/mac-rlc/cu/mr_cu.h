@@ -1,4 +1,4 @@
-/* Copyright (c) 2017 Kewin Rausch
+/* Copyright (c) 2017 Kewin Rausch and Tejas Subramanya
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "splitproto.h"
 
 #define CU_BUF_SIZE   8192
+
 /* Initialize the CU mechanisms. Data received through the DU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *
