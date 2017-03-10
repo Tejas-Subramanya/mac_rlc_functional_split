@@ -63,6 +63,11 @@
 #    ifdef SPLIT_MAC_RLC_DU
 #        include "mr_du.h"
 #        include "mr_stats.h"
+
+extern int  du_rrc_drep_ready;
+extern int  du_rrc_drep_size;
+extern char du_rrc_drep_data[DU_BUF_SIZE];
+
 #    endif /* SPLIT_MAC_RLC_DU */
 
 #ifdef Rel10

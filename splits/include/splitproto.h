@@ -89,8 +89,6 @@ typedef struct split_mr_data_indicator_req {
 	uint32_t frame;
 	/* Channel where the request is issued. */
 	uint32_t channel;
-	/* First byte of the actual data. */
-	uint8_t data;
 }__attribute__((packed)) spmr_ireq;
 
 /* Pack values of the structure into the given buffer.
@@ -118,16 +116,16 @@ int sp_mr_identify_ireq(spmr_ireq ** ireq, char * buf, uint32_t len);
  */
 
 typedef struct split_mr_data_indicator_rrc_req {
-         /* RNTI id. */
-         uint16_t rnti;
-         /* Frame where the req is issued. */
-         uint32_t frame;
-         /* Subframe where the req is issued. */
-         uint32_t subframe;
-         /* Signalling Radio Bearer id. */
-         uint16_t srb_id;
-         /* First byte of the actual data. */
-         uint8_t data;
+	/* Carrier id. */
+	int32_t CC_id;
+	/* RNTI id. */
+	uint16_t rnti;
+	/* Frame where the req is issued. */
+	uint32_t frame;
+	/* Subframe where the req is issued. */
+	uint32_t subframe;
+	/* Signalling Radio Bearer id. */
+	uint16_t srb_id;
 }__attribute__((packed)) spmr_rrc_ireq;
 
 
@@ -236,8 +234,6 @@ typedef struct split_mr_data_reply {
 	uint32_t frame;
 	/* Channel where the request is issued. */
 	uint32_t channel;
-	/* Data starts from here, and this is it's first elements. */
-	uint8_t data;
 }__attribute__((packed)) spmr_drep;
 
 /* Pack values of the structure into the given buffer.
@@ -257,12 +253,14 @@ int sp_mr_identify_drep(spmr_drep ** drep, char * buf, uint32_t len);
 */
 
 typedef struct split_mr_rrc_data_request {
-       /* Frame where the request is issued. */
-       uint32_t frame;
-       /* Signalling Radio Bearer id. */
-       uint16_t srb_id;
-       /* Number of transport blocks. */
-       uint8_t num_tb;
+	/* Carrier id. */
+	int32_t CC_id;
+	/* Frame where the request is issued. */
+	uint32_t frame;
+	/* Signalling Radio Bearer id. */
+	uint16_t srb_id;
+	/* Number of transport blocks. */
+	uint8_t num_tb;
 }__attribute__((packed)) spmr_rrc_dreq;
 
 
@@ -280,12 +278,12 @@ int sp_mr_identify_rrc_dreq(
 	spmr_rrc_dreq ** rrc_dreq, char * buf, uint32_t len);
 
 typedef struct split_mr_rrc_data_reply {
-       /* Frame where the request is issued. */
-       uint32_t frame;
-       /* Signalling Radio Bearer id. */
-       uint16_t srb_id;
-       /* Data starts from here, and this is its first element. */
-       uint8_t data;
+	/* Carrier id. */
+	int32_t CC_id;
+	/* Frame where the request is issued. */
+	uint32_t frame;
+	/* Signalling Radio Bearer id. */
+	uint16_t srb_id;
 }__attribute__((packed)) spmr_rrc_drep;
 
 

@@ -48,23 +48,267 @@
 
 #if defined (SPLIT_MAC_RLC_CU) || defined (SPLIT_MAC_RLC_DU)
 
+
 /*
  * Operations which are in common for both the profiles.
  */
+
+
 
 /*
  * This area is valid only if CU profile is enabled.
  */
 #ifdef SPLIT_MAC_RLC_CU
 
-mac_rlc_status_resp_t cu_status = {0};
 char cu_outbuf[CU_BUF_SIZE] = {0};
-
-char cu_data_req = 'A';
 char cu_outbuf_dreq[CU_BUF_SIZE] = {0};
-
-char cu_rrc_data_req = 'R';
 char cu_outbuf_rrc_dreq[CU_BUF_SIZE] = {0};
+
+/* These globals are collected during CU local operations (the MAC is still
+ * lurking underground in the CU) and used to emulate similar operations when
+ * remote requests arrives.
+ *
+ * Actually these data are collected during status indicator request operation,
+ * which is the most recurrent one.
+ */
+
+module_id_t     cu_mod_id       = 0;
+eNB_index_t     cu_idx          = 0;
+eNB_flag_t      cu_eNB_flag     = 1;
+MBMS_flag_t     cu_MBMS_flag    = 0;
+
+/* These are for MAC-RRC mechanisms. */
+module_id_t     cu_rrc_mod_id   = 0;
+eNB_flag_t      cu_rrc_eNB_flag = 1; /* Always true, probably. */
+mac_enb_index_t cu_rrc_idx      = 0; /* Equal as mod_id, usually. */
+uint8_t         cu_rrc_mbsfn    = 0; /* Not collected, always 0. */
+
+/******************************************************************************
+ * Reply for MAC-RLC Status Indicator.                                        *
+ ******************************************************************************/
+
+int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
+  int blen = 0;
+
+  spmr_sreq * sreq = 0;
+  spmr_srep srep   = {0};
+
+  mac_rlc_status_resp_t ret  = {0};
+
+  if(sp_mr_identify_sreq(&sreq, buf, len)) {
+    return -1;
+  }
+
+  /* Replicate the normal call with given parameters: */
+  ret = mac_rlc_status_ind(
+    cu_mod_id,
+    sreq->rnti,
+    cu_idx,
+    sreq->frame,
+    cu_eNB_flag,
+    cu_MBMS_flag,
+    sreq->channel,
+    sreq->tb_size);
+
+  /* Prepare an answer: */
+  srep.rnti            = sreq->rnti;
+  srep.frame           = sreq->frame;
+  srep.channel         = sreq->channel;
+  srep.tb_size         = sreq->tb_size;
+  srep.bytes           = ret.bytes_in_buffer;
+  srep.pdus            = ret.pdus_in_buffer;
+  srep.creation_time   = ret.head_sdu_creation_time;
+  srep.remaining_bytes = ret.head_sdu_remaining_size_to_send;
+  srep.segmented       = ret.head_sdu_is_segmented;
+
+  head->type           = S_PROTO_MR_STATUS_REP;
+  head->len            = sizeof(spmr_srep);
+
+  sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
+  blen = sp_mr_pack_srep(&srep, cu_outbuf, CU_BUF_SIZE);
+
+  cu_send(cu_outbuf, blen);
+
+  return 0;
+}
+
+/******************************************************************************
+ * Reply for MAC-RLC Data Request.                                            *
+ ******************************************************************************/
+
+int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
+  int blen = 0;
+
+  spmr_dreq * dreq = 0;
+  spmr_drep   drep = {0};
+
+  unsigned char tmpbuf[MAX_DLSCH_PAYLOAD_BYTES] = {0};
+  tbs_size_t tmplen = 0;
+
+  if(sp_mr_identify_dreq(&dreq, buf, len)) {
+    return -1;
+  }
+
+  tmplen = mac_rlc_data_req(
+    cu_mod_id,
+    dreq->rnti,
+    cu_idx,
+    dreq->frame,
+    cu_eNB_flag,
+    cu_MBMS_flag,
+    dreq->channel,
+    tmpbuf);
+
+  drep.rnti    = dreq->rnti;
+  drep.frame   = dreq->frame;
+  drep.channel = dreq->channel;
+
+  head->type = S_PROTO_MR_DATA_REQ_REP;
+  head->len  = sizeof(spmr_drep) + tmplen;
+
+  sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
+  blen = sp_mr_pack_drep(&drep, cu_outbuf_dreq, CU_BUF_SIZE);
+  memcpy(cu_outbuf_dreq + blen, tmpbuf, tmplen);
+
+  cu_send(cu_outbuf_dreq, blen + tmplen);
+
+  return 0;
+}
+
+/******************************************************************************
+ * Indication of MAC-RLC Data.                                                *
+ ******************************************************************************/
+
+int mac_rlc_data_ind_req(sp_head * head, char * buf, unsigned int len) {
+  char * data = 0;
+
+  spmr_ireq * ir = 0;
+
+  if(sp_mr_identify_ireq(&ir, buf, len)) {
+    return -1;
+  }
+
+  LOG_N(RLC, "-----------> [SPLIT][CU] RLC DATA_IND Len:%d, SDU:%d, Channel:%d, Frame:%d, RNTI:%x\n",
+    len,
+    head->len - sizeof(spmr_ireq),
+    ir->channel,
+    ir->frame,
+    ir->rnti);
+
+  data = buf + sizeof(sp_head) + sizeof(spmr_ireq);
+
+  /* Just inform that the data is there. */
+  mac_rlc_data_ind(
+    cu_mod_id,
+    ir->rnti,
+    cu_idx,
+    ir->frame,
+    cu_eNB_flag,
+    cu_MBMS_flag,
+    ir->channel,
+    data,
+    head->len - sizeof(spmr_ireq),
+    1,
+    0);
+
+  /* Data indicator does not need any feedback; is a one-way travel. */
+
+  return 0;
+}
+
+/******************************************************************************
+ * Reply for MAC-RRC Data Request.                                            *
+ ******************************************************************************/
+
+int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
+  int blen = 0;
+
+  /* Size of this variable shall give enough room to contains a reply; look at
+   * 'mac_rrc_data_req' and adapt to that buffer sizes.
+   */
+  char tmpbuf[CCCH_PAYLOAD_SIZE_MAX] = {0};
+  int  tmplen = 0;
+
+  spmr_rrc_dreq * dreq;
+  spmr_rrc_drep drep;
+
+  if(sp_mr_identify_rrc_dreq(&dreq, buf, len)) {
+    return -1;
+  }
+
+  tmplen = mac_rrc_data_req(
+    cu_rrc_mod_id,
+    dreq->CC_id,
+    dreq->frame,
+    dreq->srb_id,
+    dreq->num_tb,
+    tmpbuf,
+    cu_rrc_eNB_flag,
+    cu_rrc_mod_id,
+    cu_rrc_mbsfn);
+
+  head->type  = S_PROTO_MR_RRC_DATA_REQ_REP;
+  head->vers  = 1;
+  head->len   = sizeof(spmr_rrc_drep) + tmplen;
+
+  drep.CC_id  = dreq->CC_id;
+  drep.frame  = dreq->frame;
+  drep.srb_id = dreq->srb_id;
+
+  sp_pack_head(head, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
+  blen = sp_mr_pack_rrc_drep(&drep, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
+  memcpy(buf + blen, tmpbuf, tmplen);
+
+  cu_send(cu_outbuf_rrc_dreq, blen + tmplen);
+
+  return 0;
+}
+
+/******************************************************************************
+ * Reply for MAC-RRC Data Indicator.                                          *
+ ******************************************************************************/
+
+int mac_rrc_data_ind_reply(sp_head * head, char * buf, unsigned int len) {
+  char * data = 0;
+
+  spmr_rrc_ireq * di;
+
+  if(sp_mr_identify_rrc_ireq(&di, buf, len)) {
+    return -1;
+  }
+
+  LOG_N(RLC, "-----------> [SPLIT][CU] RRC DATA_IND Len:%d, SDU:%d, CC:%d, Frame:%d, SubF:%d, RNTI:%x, SRB:%d\n",
+    len,
+    head->len - sizeof(spmr_rrc_ireq),
+    di->CC_id,
+    di->frame,
+    di->subframe,
+    di->rnti,
+    di->srb_id);
+
+  data = buf + sizeof(sp_head) + sizeof(spmr_rrc_ireq);
+
+  mac_rrc_data_ind(
+    cu_rrc_mod_id,
+    di->CC_id,
+    di->frame,
+    di->subframe,
+    di->rnti,
+    di->srb_id,
+    data,
+    head->len - sizeof(spmr_rrc_ireq),
+    cu_rrc_eNB_flag,
+    cu_rrc_idx,
+    cu_rrc_mbsfn);
+
+  /* Data indicator does not need any feedback; is a one-way travel. */
+
+  return 0;
+}
+
+/******************************************************************************
+ * Receiver loop in the CU.                                                   *
+ ******************************************************************************/
 
 int mac_rlc_cu_recv(char * buf, unsigned int len) {
   sp_head * head;
@@ -75,140 +319,120 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
 
   /* Send it back. */
   switch(head->type) {
-    case S_PROTO_MR_STATUS_REQ:
-      /* To call mac_rlc_status_ind function here with the received arguments from DU
-      cu_status = mac_rlc_status_ind(received arguments);*/
-      mac_rlc_status_reply(head, buf, len);
-      break;
-    case S_PROTO_MR_DATA_REQ:
-      /*To call mac_rlc_data_req function here with the received arguments from DU
-      cu_data_req = mac_rlc_data_req(received arguments);*/
-      mac_rlc_data_req_reply(head, buf, len);
-      break;
-    case S_PROTO_MR_DATA_IND:
-      /* To call mac_rlc_data_ind function here with the received arguments from DU
-      mac_rlc_data_ind(received arguments);*/
-      cu_send(buf, len); /*Used only for stat collection*/
-      break;	
-    case S_PROTO_MR_RRC_DATA_REQ:
-      /* To call mac_rrc_data_req function here with the received arguments from DU
-      mac_rrc_data_req(received arguments);*/
-      mac_rrc_data_req_reply(head, buf, len);
-      break;
-    case S_PROTO_MR_RRC_DATA_IND:
-      /* To call mac_rrc_data_ind function here with the received arguments from DU
-      mac_rrc_data_ind(received arguments);*/
-      cu_send(buf, len); /*Used only for stat collection*/
-      break;	
-    default:
-      /* cu_send(buf, len);
-      Do nothing... */
-      break;
+  case S_PROTO_MR_STATUS_REQ:
+    mac_rlc_status_reply(head, buf, len);
+    break;
+  case S_PROTO_MR_DATA_REQ:
+    mac_rlc_data_req_reply(head, buf, len);
+    break;
+  case S_PROTO_MR_DATA_IND:
+    mac_rlc_data_ind_req(head, buf, len);
+    break;
+  case S_PROTO_MR_RRC_DATA_REQ:
+    mac_rrc_data_req_reply(head, buf, len);
+    break;
+  case S_PROTO_MR_RRC_DATA_IND:
+    mac_rrc_data_ind_reply(head, buf, len);
+    break;
+  default:
+    /* cu_send(buf, len);
+    Do nothing... */
+    break;
   }
-  return 0;
-}
-
-/******************************************************************************
- * Reply for MAC-RLC Status Indicator.                                        *
- ******************************************************************************/
-
-int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
-  int blen;
-  spmr_sreq *status_request;
-  spmr_srep status_reply;
-
-  if(sp_mr_identify_sreq(&status_request, buf, len)) {
-    return -1;
-  }
-
-  status_reply.rnti    = status_request->rnti;
-  status_reply.frame   = status_request->frame;
-  status_reply.channel = status_request->channel;
-  status_reply.tb_size = status_request->tb_size;
-
-  status_reply.bytes   = cu_status.bytes_in_buffer;
-  status_reply.pdus    = cu_status.pdus_in_buffer;
-  status_reply.creation_time = cu_status.head_sdu_creation_time;
-  status_reply.remaining_bytes = cu_status.head_sdu_remaining_size_to_send;
-  status_reply.segmented = cu_status.head_sdu_is_segmented;
-
-  head->type    = S_PROTO_MR_STATUS_REP;
-  head->len     = sizeof(sp_head) + sizeof(spmr_srep);
-
-  sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
-  blen = sp_mr_pack_srep(&status_reply, cu_outbuf, CU_BUF_SIZE);
-
-  cu_send(cu_outbuf, blen);
-  return 0;
-}
-
-/******************************************************************************
- * Reply for MAC-RLC Data Request.                                            *
- ******************************************************************************/
-
-int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
-  int blen;
-  spmr_dreq *data_request;
-  spmr_drep data_reply;
-
-  if(sp_mr_identify_dreq(&data_request, buf, len)) {
-    return -1;
-  }
-
-  data_reply.rnti    = data_request->rnti;
-  data_reply.frame   = data_request->frame;
-  data_reply.channel = data_request->channel;
-
-  data_reply.data = cu_data_req;
-
-  head->type    = S_PROTO_MR_DATA_REQ_REP;
-  head->len     = sizeof(sp_head) + sizeof(spmr_drep);
-
-  sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
-  blen = sp_mr_pack_drep(&data_reply, cu_outbuf_dreq, CU_BUF_SIZE);
-
-  cu_send(cu_outbuf_dreq, blen);
-  return 0;
-}
-
-/******************************************************************************
- * Reply for MAC-RRC Data Request.                                            *
- ******************************************************************************/
-
-int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
-  int blen;
-  spmr_rrc_dreq *data_request;
-  spmr_rrc_drep data_reply;
-
-  if(sp_mr_identify_rrc_dreq(&data_request, buf, len)) {
-    return -1;
-  }
-
-  data_reply.frame    = data_request->frame;
-  data_reply.srb_id   = data_request->srb_id;
-
-  data_reply.data = cu_rrc_data_req;
-
-  head->type    = S_PROTO_MR_RRC_DATA_REQ_REP;
-  head->len     = sizeof(sp_head) + sizeof(spmr_rrc_drep);
-
-  sp_pack_head(head, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
-  blen = sp_mr_pack_rrc_drep(&data_reply, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
-
-  cu_send(cu_outbuf_rrc_dreq, blen);
   return 0;
 }
 
 #endif /* SPLIT_MAC_RLC_CU */
 
-/*
- * This area is valid only if DU profile is enabled.
- */
 #ifdef SPLIT_MAC_RLC_DU
 
+/******************************************************************************
+ * DU-side globals.                                                           *
+ ******************************************************************************/
+
+int du_rrc_drep_ready = 0;
+int du_rrc_drep_size  = 0;
+char du_rrc_drep_data[DU_BUF_SIZE] = {0};
+
+int du_rlc_srep_ready = 0;
+mac_rlc_status_resp_t du_rlc_srep_empty = {0};
+mac_rlc_status_resp_t du_rlc_srep_data  = {0};
+
+int du_rlc_drep_ready = 0;
+int du_rlc_drep_size  = 0;
+char du_rlc_drep_data[DU_BUF_SIZE] = {0};
+
+/******************************************************************************
+ * Reply for MAC-RRC Data Indicator.                                          *
+ ******************************************************************************/
+
+int mac_rlc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
+  spmr_drep * drep = 0;
+
+  if(sp_mr_identify_drep(&drep, buf, len)) {
+    return -1;
+  }
+
+  /* Fill the feedback data. */
+  du_rlc_drep_size = head->len - sizeof(spmr_rrc_drep);
+  memcpy(
+    du_rlc_drep_data,
+    buf + sizeof(sp_head) + sizeof(spmr_drep),
+    du_rlc_drep_size);
+
+  /* Allow the waiting loop to go on. */
+  du_rlc_drep_ready = 1;
+
+  return 0;
+}
+
+int mac_rlc_handle_status_rep(sp_head * head, char * buf, unsigned int len) {
+  spmr_srep * srep = 0;
+
+  if(sp_mr_identify_srep(&srep, buf, len)) {
+    return -1;
+  }
+
+  /* Fill the feedback data. */
+  du_rlc_srep_data.bytes_in_buffer = srep->bytes;
+  du_rlc_srep_data.head_sdu_creation_time = srep->creation_time;
+  du_rlc_srep_data.head_sdu_is_segmented = srep->segmented;
+  du_rlc_srep_data.head_sdu_remaining_size_to_send = srep->remaining_bytes;
+  du_rlc_srep_data.pdus_in_buffer = srep->pdus;
+
+  /* Allow the waiting loop to go on. */
+  du_rlc_srep_ready = 1;
+
+  return 0;
+}
+
+int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
+  spmr_rrc_drep * drep = 0;
+
+  if(sp_mr_identify_rrc_drep(&drep, buf, len)) {
+    return -1;
+  }
+
+  /* Fill the feedback data. */
+  du_rrc_drep_size = head->len - sizeof(spmr_rrc_drep);
+  memcpy(
+    du_rrc_drep_data,
+    buf + sizeof(sp_head) + sizeof(spmr_rrc_drep),
+    du_rrc_drep_size);
+
+  /* Allow the waiting loop to go on. */
+  du_rrc_drep_ready = 1;
+
+  return 0;
+}
+
+/******************************************************************************
+ * Receiver loop in the CU.                                                   *
+ ******************************************************************************/
+
 int mac_rlc_du_recv(char * buf, unsigned int len) {
-  
-  sp_head * head;
+  sp_head * head = {0};
+
   if(sp_identify_head(&head, buf, len)) {
     return 0;
   }
@@ -216,16 +440,18 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
   switch(head->type) {
     case S_PROTO_MR_STATUS_REP:
       mr_stat_status_epilogue((uint32_t)len);
+      mac_rlc_handle_status_rep(head, buf, len);
       break;
     case S_PROTO_MR_DATA_REQ_REP:
       mr_stat_req_epilogue((uint32_t)len);
+      mac_rlc_handle_data_rep(head, buf, len);
       break;
-    /* Used only for stat collection */
     case S_PROTO_MR_DATA_IND:
       mr_stat_ind_epilogue();
       break;
     case S_PROTO_MR_RRC_DATA_REQ_REP:
       mr_stat_rrc_req_epilogue((uint32_t)len);
+      mac_rrc_handle_data_rep(head, buf, len);
       break;
     case S_PROTO_MR_RRC_DATA_IND:
       mr_stat_rrc_ind_epilogue();
@@ -348,31 +574,47 @@ tbs_size_t mac_rlc_data_req(
   tbs_size_t             ret_tb_size         = 0;
   protocol_ctxt_t     ctxt;
 
-/***************************************************************************
- * Follow Split protocol rules to send 'mac_rlc_data_req' to CU.
- **************************************************************************/
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-  sp_head data_req_header;
-  spmr_dreq data_req;
+  sp_head head = {0};
+  spmr_dreq dreq = {0};
+
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;  
   
-  data_req_header.type = S_PROTO_MR_DATA_REQ;
-  data_req_header.vers = 1;
-  data_req_header.len = sizeof(spmr_dreq);
+  head.type    = S_PROTO_MR_DATA_REQ;
+  head.vers    = 1;
+  head.len     = sizeof(spmr_dreq);
   
-  data_req.rnti = rntiP;
-  data_req.frame = frameP;
-  data_req.channel = channel_idP;
+  dreq.rnti    = rntiP;
+  dreq.frame   = frameP;
+  dreq.channel = channel_idP;
   
-  sp_pack_head(&data_req_header, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_dreq(&data_req, buf, DU_BUF_SIZE);
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_dreq(&dreq, buf, DU_BUF_SIZE);
 
   if(du_send(buf, buflen)) {   
     mr_stat_req_prologue((uint32_t)buflen);
   }
+#if 0
+  if(du_rlc_drep_ready) {
+    /* Reset of waiting condition. */
+    du_rlc_drep_ready = 0;
+
+    memcpy(buffer_pP, du_rlc_drep_data, du_rlc_drep_size);
+    return du_rlc_drep_size;
+  }
+
+  return 0;
 #endif
+#endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0,eNB_index);
 
@@ -482,34 +724,42 @@ void mac_rlc_data_ind     (
   srb_flag_t             srb_flag        = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
   protocol_ctxt_t     ctxt;
 
-/***************************************************************************
- * Follow Split protocol rules to send 'mac_rlc_data_ind' to CU.
- **************************************************************************/
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
 
-  sp_head data_ind_header;
-  spmr_ireq data_indication;
-  char buf[DU_BUF_SIZE] = {0};
+  sp_head head = {0};
+  spmr_ireq di = {0};
+
+  char buf[DU_BUF_SIZE]   = {0};
   int buflen = 0;  
   
-  data_ind_header.type = S_PROTO_MR_DATA_IND;
-  data_ind_header.vers = 1;
-  data_ind_header.len = sizeof(spmr_ireq);
+  head.type  = S_PROTO_MR_DATA_IND;
+  head.vers  = 1;
+  head.len   = sizeof(spmr_ireq) + tb_sizeP;
   
-  data_indication.rnti = rntiP;
-  data_indication.frame = frameP;
-  data_indication.channel = channel_idP;
-  data_indication.data = buffer_pP[0];
+  di.rnti    = rntiP;
+  di.frame   = frameP;
+  di.channel = channel_idP;
   
-  sp_pack_head(&data_ind_header, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_ireq(&data_indication, buf, DU_BUF_SIZE);
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_ireq(&di, buf, DU_BUF_SIZE);
+  memcpy(buf + buflen, buffer_pP, tb_sizeP);
 
-  if(du_send(buf, buflen)) {
+  if(du_send(buf, buflen + tb_sizeP)) {
     mr_stat_ind_prologue(buflen);
   }
 
+  /* Returns immediately. */
+ // return;
+
 #endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0, eNB_index);
 
@@ -617,34 +867,79 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   srb_flag_t             srb_flag    = (channel_idP <= 2) ? SRB_FLAG_YES : SRB_FLAG_NO;
   protocol_ctxt_t     ctxt;
 
-/***************************************************************************
- * Follow Split protocol rules to send 'mac_rlc_status_ind' to CU.
- **************************************************************************/
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
 
 #ifdef SPLIT_MAC_RLC_DU
   
-  sp_head   status_header;
-  spmr_sreq status_request;
+  sp_head   head = {0};
+  spmr_sreq sreq = {0};
+
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;
 
-  status_header.type    = S_PROTO_MR_STATUS_REQ;
-  status_header.vers    = 1;
-  status_header.len     = sizeof(spmr_sreq);
+  head.type    = S_PROTO_MR_STATUS_REQ;
+  head.vers    = 1;
+  head.len     = sizeof(spmr_sreq);
 
-  status_request.rnti = rntiP;
-  status_request.frame = frameP;
-  status_request.channel = channel_idP;
-  status_request.tb_size = tb_sizeP;
+  sreq.rnti    = rntiP;
+  sreq.frame   = frameP;
+  sreq.channel = channel_idP;
+  sreq.tb_size = tb_sizeP;
 
-  sp_pack_head(&status_header, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_sreq(&status_request, buf, DU_BUF_SIZE);
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_sreq(&sreq, buf, DU_BUF_SIZE);
   
   if(du_send(buf, buflen) > 0) {
 	  mr_stat_status_prologue((uint32_t)buflen);
   }
+#if 0
+  if(du_rlc_srep_ready) {
+    /* Reset of waiting condition. */
+    du_rlc_srep_ready = 0;
 
+    return du_rlc_srep_data;
+  }
+
+  return du_rlc_srep_empty;
 #endif
+#endif
+
+#ifdef SPLIT_MAC_RLC_CU
+  /*
+   * Populate the globals at CU side.
+   */
+
+  if(cu_mod_id != module_idP) {
+    cu_mod_id = module_idP;
+    /*
+     * Fill RRC stuff here too.
+     */
+    cu_rrc_mod_id = module_idP;
+    cu_rrc_idx    = module_idP;
+  }
+
+  if(cu_idx != eNB_index) {
+    cu_idx = eNB_index;
+  }
+
+  if(cu_eNB_flag != enb_flagP) {
+    cu_eNB_flag     = enb_flagP;
+    /*
+     * Fill RRC stuff here too.
+     */
+    cu_rrc_eNB_flag = enb_flagP;
+  }
+
+  if(cu_MBMS_flag != MBMS_flagP) {
+    cu_MBMS_flag = MBMS_flagP;
+  }
+#endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
   PROTOCOL_CTXT_SET_BY_MODULE_ID(&ctxt, module_idP, enb_flagP, rntiP, frameP, 0, eNB_index);
 

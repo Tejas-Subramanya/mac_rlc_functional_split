@@ -89,32 +89,47 @@ mac_rrc_data_req(
   SRB_INFO *Srb_info;
   uint8_t Sdu_size=0;
 
-/***************************************************************************
- * Follow Split protocol rules to send 'mac_rrc_data_req' to CU.
- **************************************************************************/
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-  sp_head data_req_header;
-  spmr_rrc_dreq data_req;
+  sp_head head;
+  spmr_rrc_dreq dreq;
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;  
-  
-  data_req_header.type = S_PROTO_MR_RRC_DATA_REQ;
-  data_req_header.vers = 1;
-  data_req_header.len = sizeof(spmr_rrc_dreq);
-  
-  data_req.frame = frameP;
-  data_req.srb_id = Srb_id;
-  data_req.num_tb = Nb_tb;
-  
-  sp_pack_head(&data_req_header, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_rrc_dreq(&data_req, buf, DU_BUF_SIZE);
 
-  if(du_send(buf, buflen)) {   
+  head.type = S_PROTO_MR_RRC_DATA_REQ;
+  head.vers = 1;
+  head.len  = sizeof(spmr_rrc_dreq);
+  
+  dreq.CC_id       = CC_id;
+  dreq.frame       = frameP;
+  dreq.srb_id      = Srb_id;
+  dreq.num_tb      = Nb_tb;
+  
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_dreq(&dreq, buf, DU_BUF_SIZE);
+
+  if(du_send(buf, buflen) > 0) {
     mr_stat_rrc_req_prologue((uint32_t)buflen);
   }
+#if 0
+  if(du_rrc_drep_ready) {
+    /* Reset for the next run. */
+    du_rrc_drep_ready = 0;
 
+    memcpy(buffer_pP, du_rrc_drep_data, du_rrc_drep_size);
+    return du_rrc_drep_size;
+  }
+
+  return 0;
 #endif
+#endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
 #ifdef DEBUG_RRC
   int i;
@@ -392,35 +407,43 @@ mac_rrc_data_ind(
   /* for no gcc warnings */
   (void)sdu_size;
 
-/***************************************************************************
- * Follow Split protocol rules to send 'mac_rrc_data_ind' to CU.
- **************************************************************************/
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
 
-  sp_head data_ind_header;
-  spmr_rrc_ireq data_indication;
+  sp_head head;
+  spmr_rrc_ireq ireq;
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;  
   
-  data_ind_header.type = S_PROTO_MR_RRC_DATA_IND;
-  data_ind_header.vers = 1;
-  data_ind_header.len = sizeof(spmr_rrc_ireq);
+  head.type     = S_PROTO_MR_RRC_DATA_IND;
+  head.vers     = 1;
+  head.len      = sizeof(spmr_rrc_ireq) + sdu_lenP;
   
-  data_indication.rnti = rntiP;
-  data_indication.frame = frameP;
-  data_indication.subframe = sub_frameP;
-  data_indication.srb_id = srb_idP;
-  data_indication.data = sduP[0];
+  ireq.CC_id    = CC_id;
+  ireq.rnti     = rntiP;
+  ireq.frame    = frameP;
+  ireq.subframe = sub_frameP;
+  ireq.srb_id   = srb_idP;
   
-  sp_pack_head(&data_ind_header, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_rrc_ireq(&data_indication, buf, DU_BUF_SIZE);
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_ireq(&ireq, buf, DU_BUF_SIZE);
+  memcpy(buf + buflen, sduP, sdu_lenP);
 
-  if(du_send(buf, buflen)) {
+  if(du_send(buf, buflen + sdu_lenP) > 0) {
     mr_stat_rrc_ind_prologue(buflen);
   }
 
+  /* Send the message and return immediately. Local RRC is not required. */
+  //return 0;
+
 #endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
   /*
   int si_window;

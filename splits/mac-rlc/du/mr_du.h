@@ -20,6 +20,7 @@
 #include <splitproto.h>
 
 #define DU_BUF_SIZE   8192
+
 /* Initialize the DU mechanisms. Data received through the CU mechanism will be
  * passed to the given callback, in order to allow custom processing.
  *

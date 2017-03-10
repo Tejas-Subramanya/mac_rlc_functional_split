@@ -131,5 +131,6 @@ int du_send(char * buf, unsigned int len) {
 	}
 
 	/* Waiting send operation. */
-	return nw_send(du_sockfd, buf, len, NETW_FLAG_NO_SIGNALS);
+	return nw_send(
+		du_sockfd, buf, len, NETW_FLAG_NO_SIGNALS | NETW_FLAG_NO_WAIT);
 }
