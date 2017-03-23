@@ -60,6 +60,23 @@
  */
 #ifdef SPLIT_MAC_RLC_CU
 
+/* 
+ * Dummy schedular running in loop on its own thread.
+ * Dummy schedular logic.
+ */
+/*
+uint8_t dummy_sched_stop = 0;
+
+void * dummy_sched_loop(void *args) {
+  CU_DBG("Starting Dummy Sched loop");
+
+  while(!dummy_sched_stop) {
+    printf("Entering dummy sched loop\n");
+    sleep(5);
+  }
+}
+*/
+
 char cu_outbuf[CU_BUF_SIZE] = {0};
 char cu_outbuf_dreq[CU_BUF_SIZE] = {0};
 char cu_outbuf_rrc_dreq[CU_BUF_SIZE] = {0};
@@ -84,10 +101,10 @@ mac_enb_index_t cu_rrc_idx      = 0; /* Equal as mod_id, usually. */
 uint8_t         cu_rrc_mbsfn    = 0; /* Not collected, always 0. */
 
 /******************************************************************************
- * Reply for MAC-RLC Status Indicator.                                        *
+ * Reply for MAC-RLC Status Indicator and Data request.
+ * Data is also sent along with Status Indicator response.                                        *
  ******************************************************************************/
-
-int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
+int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen = 0;
 
   spmr_sreq * sreq = 0;
@@ -95,11 +112,14 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
 
   mac_rlc_status_resp_t ret  = {0};
 
+  unsigned char tmpbuf[MAX_DLSCH_PAYLOAD_BYTES] = {0};
+  tbs_size_t tmplen = 0;
+
   if(sp_mr_identify_sreq(&sreq, buf, len)) {
     return -1;
   }
 
-  /* Replicate the normal call with given parameters: */
+  /* Replicate the normal call with given parameters for status_ind: */
   ret = mac_rlc_status_ind(
     cu_mod_id,
     sreq->rnti,
@@ -109,6 +129,19 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
     cu_MBMS_flag,
     sreq->channel,
     sreq->tb_size);
+  
+/* Replicate the normal call with given parameters for data_req: */
+  if(sreq->channel != 0 && (ret.bytes_in_buffer > 0)) {
+  	tmplen = mac_rlc_data_req(
+    	cu_mod_id,
+    	sreq->rnti,
+    	cu_idx,
+    	sreq->frame,
+    	cu_eNB_flag,
+    	cu_MBMS_flag,
+    	sreq->channel,
+    	tmpbuf);
+  }
 
   /* Prepare an answer: */
   srep.rnti            = sreq->rnti;
@@ -122,12 +155,13 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
   srep.segmented       = ret.head_sdu_is_segmented;
 
   head->type           = S_PROTO_MR_STATUS_REP;
-  head->len            = sizeof(spmr_srep);
+  head->len            = sizeof(spmr_srep) + tmplen;
 
   sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
   blen = sp_mr_pack_srep(&srep, cu_outbuf, CU_BUF_SIZE);
+  memcpy(cu_outbuf + blen, tmpbuf, tmplen);
 
-  cu_send(cu_outbuf, blen);
+  cu_send(cu_outbuf, blen + tmplen);
 
   return 0;
 }
@@ -135,6 +169,8 @@ int mac_rlc_status_reply(sp_head * head, char * buf, unsigned int len) {
 /******************************************************************************
  * Reply for MAC-RLC Data Request.                                            *
  ******************************************************************************/
+
+/******************* Not used anymore ****************************/
 
 int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
   int blen = 0;
@@ -257,8 +293,8 @@ int mac_rrc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
 
   sp_pack_head(head, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
   blen = sp_mr_pack_rrc_drep(&drep, cu_outbuf_rrc_dreq, CU_BUF_SIZE);
-  memcpy(buf + blen, tmpbuf, tmplen);
-
+  memcpy(cu_outbuf_rrc_dreq + blen, tmpbuf, tmplen);
+  
   cu_send(cu_outbuf_rrc_dreq, blen + tmplen);
 
   return 0;
@@ -320,9 +356,10 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
   /* Send it back. */
   switch(head->type) {
   case S_PROTO_MR_STATUS_REQ:
-    mac_rlc_status_reply(head, buf, len);
+    mac_rlc_status_data_req_reply(head, buf, len);
     break;
   case S_PROTO_MR_DATA_REQ:
+    /* Not used anymore */
     mac_rlc_data_req_reply(head, buf, len);
     break;
   case S_PROTO_MR_DATA_IND:
@@ -351,8 +388,12 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
  ******************************************************************************/
 
 int du_rrc_drep_ready = 0;
-int du_rrc_drep_size  = 0;
-char du_rrc_drep_data[DU_BUF_SIZE] = {0};
+int du_rrc_drep_size_SIB1  = 0;
+char du_rrc_drep_data_SIB1[DU_BUF_SIZE] = {0};
+int du_rrc_drep_size_SIB23 = 0;
+char du_rrc_drep_data_SIB23[DU_BUF_SIZE] = {0};
+int du_rrc_drep_size_SRB0 = 0;
+char du_rrc_drep_data_SRB0[DU_BUF_SIZE] = {0};
 
 int du_rlc_srep_ready = 0;
 mac_rlc_status_resp_t du_rlc_srep_empty = {0};
@@ -363,10 +404,13 @@ int du_rlc_drep_size  = 0;
 char du_rlc_drep_data[DU_BUF_SIZE] = {0};
 
 /******************************************************************************
- * Reply for MAC-RRC Data Indicator.                                          *
+ * Reply for MAC-RLC-Status_ind, MAC-RLC-Data_req and MAC-RRC-Data_req.                                          *
  ******************************************************************************/
 
 int mac_rlc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
+  
+/*************************Not used anymore**********************************/
+
   spmr_drep * drep = 0;
 
   if(sp_mr_identify_drep(&drep, buf, len)) {
@@ -374,7 +418,7 @@ int mac_rlc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
   }
 
   /* Fill the feedback data. */
-  du_rlc_drep_size = head->len - sizeof(spmr_rrc_drep);
+  du_rlc_drep_size = head->len - sizeof(spmr_drep);
   memcpy(
     du_rlc_drep_data,
     buf + sizeof(sp_head) + sizeof(spmr_drep),
@@ -392,16 +436,24 @@ int mac_rlc_handle_status_rep(sp_head * head, char * buf, unsigned int len) {
   if(sp_mr_identify_srep(&srep, buf, len)) {
     return -1;
   }
-
-  /* Fill the feedback data. */
+  
+  /* Fill the feedback data for status_ind_. */
   du_rlc_srep_data.bytes_in_buffer = srep->bytes;
   du_rlc_srep_data.head_sdu_creation_time = srep->creation_time;
   du_rlc_srep_data.head_sdu_is_segmented = srep->segmented;
   du_rlc_srep_data.head_sdu_remaining_size_to_send = srep->remaining_bytes;
   du_rlc_srep_data.pdus_in_buffer = srep->pdus;
 
-  /* Allow the waiting loop to go on. */
+  /* Fill in the feedback data for data_req */
+  du_rlc_drep_size = head->len - sizeof(spmr_srep);
+  memcpy(
+    du_rlc_drep_data,
+    buf + sizeof(sp_head) + sizeof(spmr_srep),
+    du_rlc_drep_size);
+
+  /* Allow the waiting loops to go on. */
   du_rlc_srep_ready = 1;
+  du_rlc_drep_ready = 1;
 
   return 0;
 }
@@ -413,15 +465,40 @@ int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
     return -1;
   }
 
-  /* Fill the feedback data. */
-  du_rrc_drep_size = head->len - sizeof(spmr_rrc_drep);
-  memcpy(
-    du_rrc_drep_data,
-    buf + sizeof(sp_head) + sizeof(spmr_rrc_drep),
-    du_rrc_drep_size);
+  /* Check the type of RRC data(SIB1 or SIB23 or SRB0).
+   * Lock the memory critical section before using it for thread synchronization. 
+   * Write the respective feedback data only if it is a new data.
+   */
 
-  /* Allow the waiting loop to go on. */
-  du_rrc_drep_ready = 1;
+  if((drep->srb_id & RAB_OFFSET) == BCCH) {
+    if(((drep->frame)%2) == 0) {
+      pthread_spin_lock(&du_lock);
+      du_rrc_drep_size_SIB1 = head->len - sizeof(spmr_rrc_drep);
+      memcpy(
+            du_rrc_drep_data_SIB1,
+            buf + sizeof(sp_head) + sizeof(spmr_rrc_drep),
+            du_rrc_drep_size_SIB1);
+      pthread_spin_unlock(&du_lock);
+    }
+    if(((drep->frame)%8) == 1) {
+      pthread_spin_lock(&du_lock);
+      du_rrc_drep_size_SIB23 = head->len - sizeof(spmr_rrc_drep);
+      memcpy(
+            du_rrc_drep_data_SIB23,
+            buf + sizeof(sp_head) + sizeof(spmr_rrc_drep),
+            du_rrc_drep_size_SIB23);
+      pthread_spin_unlock(&du_lock);
+    }
+  }
+  if((drep->srb_id & RAB_OFFSET) == CCCH) {
+    pthread_spin_lock(&du_lock);
+    du_rrc_drep_size_SRB0 = head->len - sizeof(spmr_rrc_drep);
+    memcpy(
+            du_rrc_drep_data_SRB0,
+            buf + sizeof(sp_head) + sizeof(spmr_rrc_drep),
+            du_rrc_drep_size_SRB0);
+    pthread_spin_unlock(&du_lock);
+  }
 
   return 0;
 }
@@ -579,7 +656,7 @@ tbs_size_t mac_rlc_data_req(
  ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-  sp_head head = {0};
+/*  sp_head head = {0};
   spmr_dreq dreq = {0};
 
   char buf[DU_BUF_SIZE] = {0};
@@ -599,7 +676,9 @@ tbs_size_t mac_rlc_data_req(
   if(du_send(buf, buflen)) {   
     mr_stat_req_prologue((uint32_t)buflen);
   }
-#if 0
+*/
+
+//#if 0
   if(du_rlc_drep_ready) {
     /* Reset of waiting condition. */
     du_rlc_drep_ready = 0;
@@ -609,7 +688,7 @@ tbs_size_t mac_rlc_data_req(
   }
 
   return 0;
-#endif
+//#endif
 #endif
 
 /******************************************************************************
@@ -659,7 +738,7 @@ tbs_size_t mac_rlc_data_req(
   }
 
   h_rc = hashtable_get(rlc_coll_p, key, (void**)&rlc_union_p);
-
+  
   if (h_rc == HASH_TABLE_OK) {
     rlc_mode = rlc_union_p->mode;
   } else {
@@ -753,7 +832,7 @@ void mac_rlc_data_ind     (
   }
 
   /* Returns immediately. */
- // return;
+  return;
 
 #endif
 
@@ -870,7 +949,6 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
 /******************************************************************************
  * MAC-RLC split mechanisms.                                                  *
  ******************************************************************************/
-
 #ifdef SPLIT_MAC_RLC_DU
   
   sp_head   head = {0};
@@ -878,7 +956,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
 
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;
-
+//#if 0
   head.type    = S_PROTO_MR_STATUS_REQ;
   head.vers    = 1;
   head.len     = sizeof(spmr_sreq);
@@ -894,7 +972,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   if(du_send(buf, buflen) > 0) {
 	  mr_stat_status_prologue((uint32_t)buflen);
   }
-#if 0
+//#if 0
   if(du_rlc_srep_ready) {
     /* Reset of waiting condition. */
     du_rlc_srep_ready = 0;
@@ -903,7 +981,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   }
 
   return du_rlc_srep_empty;
-#endif
+//#endif
 #endif
 
 #ifdef SPLIT_MAC_RLC_CU

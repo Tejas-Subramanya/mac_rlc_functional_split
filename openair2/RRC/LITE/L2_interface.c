@@ -98,6 +98,7 @@ mac_rrc_data_req(
   spmr_rrc_dreq dreq;
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;  
+  int sdu_size = 0;
 
   head.type = S_PROTO_MR_RRC_DATA_REQ;
   head.vers = 1;
@@ -114,17 +115,43 @@ mac_rrc_data_req(
   if(du_send(buf, buflen) > 0) {
     mr_stat_rrc_req_prologue((uint32_t)buflen);
   }
-#if 0
-  if(du_rrc_drep_ready) {
-    /* Reset for the next run. */
-    du_rrc_drep_ready = 0;
 
-    memcpy(buffer_pP, du_rrc_drep_data, du_rrc_drep_size);
-    return du_rrc_drep_size;
+  if((Srb_id & RAB_OFFSET) == BCCH) {
+    if((frameP%2) == 0) {
+      pthread_spin_lock(&du_lock);
+      memcpy(
+            buffer_pP,
+            du_rrc_drep_data_SIB1,
+            du_rrc_drep_size_SIB1);
+      sdu_size = du_rrc_drep_size_SIB1;
+      pthread_spin_unlock(&du_lock);
+      return sdu_size;
+    }
+    if(frameP%8 == 1) {
+      pthread_spin_lock(&du_lock);
+      memcpy(
+            buffer_pP,
+            du_rrc_drep_data_SIB23,
+            du_rrc_drep_size_SIB23);
+      sdu_size = du_rrc_drep_size_SIB23;
+      pthread_spin_unlock(&du_lock);
+      return sdu_size;
+    }
   }
-
+  if((Srb_id & RAB_OFFSET) == CCCH) {
+    pthread_spin_lock(&du_lock);
+    memcpy(
+          buffer_pP,
+          du_rrc_drep_data_SRB0,
+          du_rrc_drep_size_SRB0);
+    sdu_size = du_rrc_drep_size_SRB0;
+    pthread_spin_unlock(&du_lock);
+    return sdu_size;
+  }
+    
   return 0;
-#endif
+
+//#endif
 #endif
 
 /******************************************************************************
@@ -187,7 +214,6 @@ mac_rrc_data_req(
 
         LOG_T(RRC,"\n");
 #endif
-
         return (eNB_rrc_inst[Mod_idP].carrier[CC_id].sizeof_SIB1);
       } // All RFN mod 8 transmit SIB2-3 in SF 5
       else if ((frameP%8) == 1) {
@@ -437,7 +463,7 @@ mac_rrc_data_ind(
   }
 
   /* Send the message and return immediately. Local RRC is not required. */
-  //return 0;
+  return 0;
 
 #endif
 

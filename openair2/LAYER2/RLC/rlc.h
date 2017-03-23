@@ -65,8 +65,12 @@
 #        include "mr_stats.h"
 
 extern int  du_rrc_drep_ready;
-extern int  du_rrc_drep_size;
-extern char du_rrc_drep_data[DU_BUF_SIZE];
+extern int  du_rrc_drep_size_SIB1;
+extern char du_rrc_drep_data_SIB1[DU_BUF_SIZE];
+extern int du_rrc_drep_size_SIB23;
+extern char du_rrc_drep_data_SIB23[DU_BUF_SIZE];
+extern int du_rrc_drep_size_SRB0;
+extern char du_rrc_drep_data_SRB0[DU_BUF_SIZE];
 
 #    endif /* SPLIT_MAC_RLC_DU */
 
