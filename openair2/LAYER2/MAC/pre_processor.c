@@ -437,16 +437,17 @@ void dlsch_scheduler_pre_processor (module_id_t   Mod_id,
  */
 
 #if 0 
-  // Store the DLSCH buffer for each logical channel  
-  //store_dlsch_buffer (Mod_id,frameP,subframeP);
-
-
-  // Calculate the number of RBs required by each UE on the basis of logical channel's buffer
   
-  //assign_rbs_required (Mod_id,frameP,subframeP,nb_rbs_required,min_rb_unit);
+  // Store the DLSCH buffer for each logical channel  
+  store_dlsch_buffer (Mod_id,frameP,subframeP);
+
+  // Calculate the number of RBs required by each UE on the basis of logical channel's buffer  
+  assign_rbs_required (Mod_id,frameP,subframeP,nb_rbs_required,min_rb_unit);
+
 #endif
+
 /* Fixing the RBs required for MAC_RLC_SPLIT(Temporary change)*/
-  nb_rbs_required[0][0] = 10;
+  nb_rbs_required[0][0] = 18;
 
 
   // Sorts the user on the basis of dlsch logical channel buffer and CQI

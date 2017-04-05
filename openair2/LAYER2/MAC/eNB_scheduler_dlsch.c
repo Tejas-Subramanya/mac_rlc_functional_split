@@ -861,7 +861,7 @@ schedule_ue_spec(
           }
         }
 
-#if 0
+//#if 0
         // check for DCCH1 and update header information (assume 2 byte sub-header)
         if (TBS-ta_len-header_len_dcch-sdu_length_total > 0 ) {
           rlc_status = mac_rlc_status_ind(
@@ -910,7 +910,7 @@ schedule_ue_spec(
 	  }
         }
 
-#endif
+//#endif
 
 	// assume the max dtch header size, and adjust it later
 	header_len_dtch=0;
@@ -922,7 +922,7 @@ schedule_ue_spec(
  * To test by only having mac_rlc_status_ind and mac_rlc_data_req communication for DCCH channels and not DTCH channels
  */
 
-#if 0
+//#if 0
 	for (lcid=NB_RB_MAX-1; lcid>=DTCH ; lcid--){
 	  // TBD: check if the lcid is active
 	  
@@ -979,7 +979,7 @@ schedule_ue_spec(
 	  }
 	}
 
-#endif
+//#endif
 
         if (header_len_dtch == 0 )
 	  header_len_dtch_last= 0;

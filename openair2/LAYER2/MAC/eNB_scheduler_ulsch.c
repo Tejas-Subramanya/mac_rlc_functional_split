@@ -192,10 +192,12 @@ void rx_sdu(const module_id_t enb_mod_idP,
         if (UE_list->UE_template[CC_idP][UE_id].ul_buffer_creation_time[lcgid] == 0 ) {
           UE_list->UE_template[CC_idP][UE_id].ul_buffer_creation_time[lcgid]=frameP;
         }
+#if !defined(SPLIT_MAC_RLC_DU)
 	if (mac_eNB_get_rrc_status(enb_mod_idP,UE_RNTI(enb_mod_idP,UE_id)) < RRC_CONNECTED)
 	  LOG_I(MAC, "[eNB %d] CC_id %d MAC CE_LCID %d : ul_total_buffer = %d (lcg increment %d)\n",
 		enb_mod_idP, CC_idP, rx_ces[i], UE_list->UE_template[CC_idP][UE_id].ul_total_buffer,
 		UE_list->UE_template[CC_idP][UE_id].ul_buffer_info[lcgid]);
+#endif
       }
       else {
 
