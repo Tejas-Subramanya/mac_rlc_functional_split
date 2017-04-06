@@ -75,40 +75,22 @@ int sp_mr_identify_ireq(spmr_ireq ** ireq, char * buf, uint32_t len) {
 	return sp_generic_identify((void *)ireq, sizeof(sp_head), buf, len);
 }
 
-int sp_mr_pack_sreq(spmr_sreq * sreq, char * buf, uint32_t len) {
+int sp_mr_pack_sreq_dreq(spmr_sreq_dreq * sreq_dreq, char * buf, uint32_t len) {
 	return sp_generic_pack(
-		sreq, sizeof(sp_head), sizeof(spmr_sreq), buf, len);
+		sreq_dreq, sizeof(sp_head), sizeof(spmr_sreq_dreq), buf, len);
 }
 
-int sp_mr_identify_sreq(spmr_sreq ** sreq, char * buf, uint32_t len) {
-	return sp_generic_identify((void *)sreq, sizeof(sp_head), buf, len);
+int sp_mr_identify_sreq_dreq(spmr_sreq_dreq ** sreq_dreq, char * buf, uint32_t len) {
+	return sp_generic_identify((void *)sreq_dreq, sizeof(sp_head), buf, len);
 }
 
-int sp_mr_pack_srep(spmr_srep * srep, char * buf, uint32_t len) {
+int sp_mr_pack_srep_drep(spmr_srep_drep * srep_drep, char * buf, uint32_t len) {
 	return sp_generic_pack(
-		srep, sizeof(sp_head), sizeof(spmr_srep), buf, len);
+		srep_drep, sizeof(sp_head), sizeof(spmr_srep_drep), buf, len);
 }
 
-int sp_mr_identify_srep(spmr_srep ** srep, char * buf, uint32_t len) {
-	return sp_generic_identify((void *)srep, sizeof(sp_head), buf, len);
-}
-
-int sp_mr_pack_dreq(spmr_dreq * dreq, char * buf, uint32_t len) {
-	return sp_generic_pack(
-		dreq, sizeof(sp_head), sizeof(spmr_dreq), buf, len);
-}
-
-int sp_mr_identify_dreq(spmr_dreq ** dreq, char * buf, uint32_t len) {
-	return sp_generic_identify((void *)dreq, sizeof(sp_head), buf, len);
-}
-
-int sp_mr_pack_drep(spmr_drep * drep, char * buf, uint32_t len) {
-	return sp_generic_pack(
-		drep, sizeof(sp_head), sizeof(spmr_drep), buf, len);
-}
-
-int sp_mr_identify_drep(spmr_drep ** drep, char * buf, uint32_t len) {
-	return sp_generic_identify((void *)drep, sizeof(sp_head), buf, len);
+int sp_mr_identify_srep_drep(spmr_srep_drep ** srep_drep, char * buf, uint32_t len) {
+	return sp_generic_identify((void *)srep_drep, sizeof(sp_head), buf, len);
 }
 
 int sp_mr_pack_rrc_dreq(spmr_rrc_dreq * rrc_dreq, char * buf, uint32_t len) {

@@ -77,8 +77,7 @@ void * dummy_sched_loop(void *args) {
 }
 */
 
-char cu_outbuf[CU_BUF_SIZE] = {0};
-char cu_outbuf_dreq[CU_BUF_SIZE] = {0};
+char cu_outbuf[MAX_DLSCH_PAYLOAD_BYTES] = {0};
 char cu_outbuf_rrc_dreq[CU_BUF_SIZE] = {0};
 
 /* These globals are collected during CU local operations (the MAC is still
@@ -105,108 +104,94 @@ uint8_t         cu_rrc_mbsfn    = 0; /* Not collected, always 0. */
  * Data is also sent along with Status Indicator response.                                        *
  ******************************************************************************/
 int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) {
+
+  spmr_sreq_dreq * sreq_dreq = 0;
+  spmr_srep_drep srep_drep   = {0};
+  
   int blen = 0;
+  mac_rlc_status_resp_t ret[NB_RB_MAX]  = {0}; 
+  unsigned char tmpbuf[NB_RB_MAX][MAX_DLSCH_PAYLOAD_BYTES] = {0};
+  char cu_databuf_temp[MAX_DLSCH_PAYLOAD_BYTES] = {0};
+  tbs_size_t tmplen[NB_RB_MAX] = {0};
 
-  spmr_sreq * sreq = 0;
-  spmr_srep srep   = {0};
+  int tbs;
+  int dtch_header_len;
+  int data_len_total = 0;
 
-  mac_rlc_status_resp_t ret  = {0};
-
-  unsigned char tmpbuf[MAX_DLSCH_PAYLOAD_BYTES] = {0};
-  tbs_size_t tmplen = 0;
-
-  if(sp_mr_identify_sreq(&sreq, buf, len)) {
+  if(sp_mr_identify_sreq_dreq(&sreq_dreq, buf, len)) {
     return -1;
   }
 
-  /* Replicate the normal call with given parameters for status_ind: */
-  ret = mac_rlc_status_ind(
-    cu_mod_id,
-    sreq->rnti,
-    cu_idx,
-    sreq->frame,
-    cu_eNB_flag,
-    cu_MBMS_flag,
-    sreq->channel,
-    sreq->tb_size);
+  tbs = sreq_dreq->tb_size;
+  dtch_header_len = 0;
   
-/* Replicate the normal call with given parameters for data_req: */
-  if(sreq->channel != 0 && (ret.bytes_in_buffer > 0)) {
-  	tmplen = mac_rlc_data_req(
-    	cu_mod_id,
-    	sreq->rnti,
-    	cu_idx,
-    	sreq->frame,
-    	cu_eNB_flag,
-    	cu_MBMS_flag,
-    	sreq->channel,
-    	tmpbuf);
+  for (int i=0; i<(NB_RB_MAX); i++) {
+    /* Replicate the normal call with given parameters for status_ind: */
+    ret[i] = mac_rlc_status_ind(
+        cu_mod_id,
+        sreq_dreq->rnti,
+        cu_idx,
+        sreq_dreq->frame,
+        cu_eNB_flag,
+        cu_MBMS_flag,
+        i,
+        tbs); /* Consider the TBS after subtracting the header size and data size for previous channel */
+  
+    /* Replicate the normal call with given parameters for data_req: */
+    if(tbs > 0 && (sreq_dreq->channel != 0) && (ret[i].bytes_in_buffer > 0)) {
+      tmplen[i] = mac_rlc_data_req(
+    	  cu_mod_id,
+    	  sreq_dreq->rnti,
+    	  cu_idx,
+    	  sreq_dreq->frame,
+    	  cu_eNB_flag,
+    	  cu_MBMS_flag,
+    	  i,
+    	  (char *)tmpbuf[i]);
+    }
+    else {
+      tmplen[i] = 0;
+    }
+  
+    /* Prepare an answer: */
+    srep_drep.rnti               = sreq_dreq->rnti;
+    srep_drep.frame              = sreq_dreq->frame;
+    srep_drep.channel[i]         = i;
+    srep_drep.tb_size[i]         = tmplen[i];
+    srep_drep.bytes[i]           = ret[i].bytes_in_buffer;
+    srep_drep.pdus[i]            = ret[i].pdus_in_buffer;
+    srep_drep.creation_time[i]   = ret[i].head_sdu_creation_time;
+    srep_drep.remaining_bytes[i] = ret[i].head_sdu_remaining_size_to_send;
+    srep_drep.segmented[i]       = ret[i].head_sdu_is_segmented;
+
+    if(tmplen[i]>0) {
+      memcpy(cu_databuf_temp + data_len_total, tmpbuf[i], tmplen[i]);        
+      data_len_total += tmplen[i];
+    }
+    if(sreq_dreq->channel > 2 && tmplen[i]>0) {
+      dtch_header_len = 3;
+    }
+    else {
+      dtch_header_len = 0;
+    }
+
+    if(tbs-tmplen[i]-dtch_header_len) {
+      tbs = tbs-tmplen[i]-dtch_header_len;
+    } 
+    else {
+      tbs = 0;
+    }
   }
 
-  /* Prepare an answer: */
-  srep.rnti            = sreq->rnti;
-  srep.frame           = sreq->frame;
-  srep.channel         = sreq->channel;
-  srep.tb_size         = sreq->tb_size;
-  srep.bytes           = ret.bytes_in_buffer;
-  srep.pdus            = ret.pdus_in_buffer;
-  srep.creation_time   = ret.head_sdu_creation_time;
-  srep.remaining_bytes = ret.head_sdu_remaining_size_to_send;
-  srep.segmented       = ret.head_sdu_is_segmented;
-
-  head->type           = S_PROTO_MR_STATUS_REP;
-  head->len            = sizeof(spmr_srep) + tmplen;
+  head->len            = sizeof(spmr_srep_drep) + data_len_total;
+  head->vers           = 1;
+  head->type           = S_PROTO_MR_STATUS_DATA_REP;
 
   sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
-  blen = sp_mr_pack_srep(&srep, cu_outbuf, CU_BUF_SIZE);
-  memcpy(cu_outbuf + blen, tmpbuf, tmplen);
-
-  cu_send(cu_outbuf, blen + tmplen);
-
-  return 0;
-}
-
-/******************************************************************************
- * Reply for MAC-RLC Data Request.                                            *
- ******************************************************************************/
-
-/******************* Not used anymore ****************************/
-
-int mac_rlc_data_req_reply(sp_head * head, char * buf, unsigned int len) {
-  int blen = 0;
-
-  spmr_dreq * dreq = 0;
-  spmr_drep   drep = {0};
-
-  unsigned char tmpbuf[MAX_DLSCH_PAYLOAD_BYTES] = {0};
-  tbs_size_t tmplen = 0;
-
-  if(sp_mr_identify_dreq(&dreq, buf, len)) {
-    return -1;
-  }
-
-  tmplen = mac_rlc_data_req(
-    cu_mod_id,
-    dreq->rnti,
-    cu_idx,
-    dreq->frame,
-    cu_eNB_flag,
-    cu_MBMS_flag,
-    dreq->channel,
-    tmpbuf);
-
-  drep.rnti    = dreq->rnti;
-  drep.frame   = dreq->frame;
-  drep.channel = dreq->channel;
-
-  head->type = S_PROTO_MR_DATA_REQ_REP;
-  head->len  = sizeof(spmr_drep) + tmplen;
-
-  sp_pack_head(head, cu_outbuf_dreq, CU_BUF_SIZE);
-  blen = sp_mr_pack_drep(&drep, cu_outbuf_dreq, CU_BUF_SIZE);
-  memcpy(cu_outbuf_dreq + blen, tmpbuf, tmplen);
-
-  cu_send(cu_outbuf_dreq, blen + tmplen);
+  blen = sp_mr_pack_srep_drep(&srep_drep, cu_outbuf, CU_BUF_SIZE);
+  memcpy(cu_outbuf + blen, cu_databuf_temp, data_len_total);
+  
+  cu_send(cu_outbuf, blen+data_len_total);
 
   return 0;
 }
@@ -355,12 +340,8 @@ int mac_rlc_cu_recv(char * buf, unsigned int len) {
 
   /* Send it back. */
   switch(head->type) {
-  case S_PROTO_MR_STATUS_REQ:
+  case S_PROTO_MR_STATUS_DATA_REQ:
     mac_rlc_status_data_req_reply(head, buf, len);
-    break;
-  case S_PROTO_MR_DATA_REQ:
-    /* Not used anymore */
-    mac_rlc_data_req_reply(head, buf, len);
     break;
   case S_PROTO_MR_DATA_IND:
     mac_rlc_data_ind_req(head, buf, len);
@@ -396,87 +377,76 @@ int du_rrc_drep_size_SRB0 = 0;
 char du_rrc_drep_data_SRB0[DU_BUF_SIZE] = {0};
 
 mac_rlc_status_resp_t du_rlc_srep_empty = {0}; 
-int du_rlc_srep_ready_SRB[2] = {0};
-mac_rlc_status_resp_t du_rlc_srep_data_SRB[2]  = {0};
+int du_rlc_srep_ready_SRB[3] = {0};
+mac_rlc_status_resp_t du_rlc_srep_data_SRB[3]  = {0};
 int du_rlc_srep_ready_DRB[maxDRB] = {0};
 mac_rlc_status_resp_t du_rlc_srep_data_DRB[maxDRB] = {0};
 
-int du_rlc_drep_ready_SRB[2] = {0};
-int du_rlc_drep_size_SRB[2]  = {0};
-char du_rlc_drep_data_SRB[2][DU_BUF_SIZE] = {0};
+int du_rlc_drep_ready_SRB[3] = {0};
+int du_rlc_drep_size_SRB[3]  = {0};
+char du_rlc_drep_data_SRB[3][DU_BUF_SIZE] = {0};
 int du_rlc_drep_ready_DRB[maxDRB] = {0};
 int du_rlc_drep_size_DRB[maxDRB] = {0};
-char du_rlc_drep_data_DRB[maxDRB][DU_BUF_SIZE] = {0};
+char du_rlc_drep_data_DRB[maxDRB][MAX_DLSCH_PAYLOAD_BYTES] = {0};
 
 /******************************************************************************
  * Reply for MAC-RLC-Status_ind, MAC-RLC-Data_req and MAC-RRC-Data_req.                                          *
  ******************************************************************************/
 
-int mac_rlc_handle_status_rep(sp_head * head, char * buf, unsigned int len) {
-  spmr_srep * srep = 0;
+int mac_rlc_handle_status_data_rep(sp_head * head, char * buf, unsigned int len) {
+  spmr_srep_drep *srep_drep = 0;
+  int tmplen_total = 0;
+  char drep_buf_temp[MAX_DLSCH_PAYLOAD_BYTES] = {0};
 
-  if(sp_mr_identify_srep(&srep, buf, len)) {
+  if(sp_mr_identify_srep_drep(&srep_drep, buf, len)) {
     return -1;
   }
-  
-  switch(srep->channel) {
-  /* Fill the feedback data for status_ind_. */
-    case 1:
-      du_rlc_srep_data_SRB[0].bytes_in_buffer = srep->bytes;
-      du_rlc_srep_data_SRB[0].head_sdu_creation_time = srep->creation_time;
-      du_rlc_srep_data_SRB[0].head_sdu_is_segmented = srep->segmented;
-      du_rlc_srep_data_SRB[0].head_sdu_remaining_size_to_send = srep->remaining_bytes;
-      du_rlc_srep_data_SRB[0].pdus_in_buffer = srep->pdus;
+
+  for (int i=0; i<(maxDRB+3); i++) {
+    if (srep_drep->channel[i] < 3) {
+      du_rlc_srep_data_SRB[i].bytes_in_buffer = srep_drep->bytes[i];
+      du_rlc_srep_data_SRB[i].head_sdu_creation_time = srep_drep->creation_time[i];
+      du_rlc_srep_data_SRB[i].head_sdu_is_segmented = srep_drep->segmented[i];
+      du_rlc_srep_data_SRB[i].head_sdu_remaining_size_to_send = srep_drep->remaining_bytes[i];
+      du_rlc_srep_data_SRB[i].pdus_in_buffer = srep_drep->pdus[i];
 
       /* Fill in the feedback data for data_req */
-      du_rlc_drep_size_SRB[0] = head->len - sizeof(spmr_srep);
-      memcpy(
-        du_rlc_drep_data_SRB[0],
-        buf + sizeof(sp_head) + sizeof(spmr_srep),
-        du_rlc_drep_size_SRB[0]);
-
-      /* Allow the waiting loops to go on. */
-      du_rlc_srep_ready_SRB[0] = 1;
-      du_rlc_drep_ready_SRB[0] = 1;
-      break;
-    case 2:
-      du_rlc_srep_data_SRB[1].bytes_in_buffer = srep->bytes;
-      du_rlc_srep_data_SRB[1].head_sdu_creation_time = srep->creation_time;
-      du_rlc_srep_data_SRB[1].head_sdu_is_segmented = srep->segmented;
-      du_rlc_srep_data_SRB[1].head_sdu_remaining_size_to_send = srep->remaining_bytes;
-      du_rlc_srep_data_SRB[1].pdus_in_buffer = srep->pdus;
-
-      /* Fill in the feedback data for data_req */
-      du_rlc_drep_size_SRB[1] = head->len - sizeof(spmr_srep);
-      memcpy(
-        du_rlc_drep_data_SRB[1],
-        buf + sizeof(sp_head) + sizeof(spmr_srep),
-        du_rlc_drep_size_SRB[1]);
-
-      /* Allow the waiting loops to go on. */
-      du_rlc_srep_ready_SRB[1] = 1;
-      du_rlc_drep_ready_SRB[1] = 1;
-      break;
-    case 3:
-      du_rlc_srep_data_DRB[0].bytes_in_buffer = srep->bytes;
-      du_rlc_srep_data_DRB[0].head_sdu_creation_time = srep->creation_time;
-      du_rlc_srep_data_DRB[0].head_sdu_is_segmented = srep->segmented;
-      du_rlc_srep_data_DRB[0].head_sdu_remaining_size_to_send = srep->remaining_bytes;
-      du_rlc_srep_data_DRB[0].pdus_in_buffer = srep->pdus;
+      du_rlc_drep_size_SRB[i] = srep_drep->tb_size[i];
+      if(du_rlc_drep_size_SRB[i]) {
+        memcpy(
+          du_rlc_drep_data_SRB[i],
+          buf + sizeof(sp_head) + sizeof(spmr_srep_drep) + tmplen_total,
+          du_rlc_drep_size_SRB[i]);
+      
+        /* Allow the waiting loops to go on. */
+        du_rlc_drep_ready_SRB[i] = 1;
+      }
+      tmplen_total += srep_drep->tb_size[i];
+      //printf("Channel:%d,Tmplen_total:%d,Data:%x\n",i,tmplen_total,du_rlc_drep_data_SRB[i][0]);
+      
+      du_rlc_srep_ready_SRB[i] = 1;
+    }
+    else {      
+      du_rlc_srep_data_DRB[i].bytes_in_buffer = srep_drep->bytes[i];
+      du_rlc_srep_data_DRB[i].head_sdu_creation_time = srep_drep->creation_time[i];
+      du_rlc_srep_data_DRB[i].head_sdu_is_segmented = srep_drep->segmented[i];
+      du_rlc_srep_data_DRB[i].head_sdu_remaining_size_to_send = srep_drep->remaining_bytes[i];
+      du_rlc_srep_data_DRB[i].pdus_in_buffer = srep_drep->pdus[i];
 
       /* Fill in the feedback data for data_req */
-      du_rlc_drep_size_DRB[0] = head->len - sizeof(spmr_srep);
-      memcpy(
-        du_rlc_drep_data_DRB[0],
-        buf + sizeof(sp_head) + sizeof(spmr_srep),
-        du_rlc_drep_size_DRB[0]);
+      du_rlc_drep_size_DRB[i] = srep_drep->tb_size[i];
+      if(du_rlc_drep_size_DRB[i]) {
+        memcpy(
+          du_rlc_drep_data_DRB[i],
+          buf + sizeof(sp_head) + sizeof(spmr_srep_drep) + tmplen_total,
+          du_rlc_drep_size_DRB[i]);
+        du_rlc_drep_ready_DRB[i] = 1;
+      }
+      tmplen_total += srep_drep->tb_size[i];
 
       /* Allow the waiting loops to go on. */
-      du_rlc_srep_ready_DRB[0] = 1;
-      du_rlc_drep_ready_DRB[0] = 1;
-      break;
-  default:
-      break;
+      du_rlc_srep_ready_DRB[i] = 1;
+    }
   }
   return 0;
 }
@@ -538,12 +508,9 @@ int mac_rlc_du_recv(char * buf, unsigned int len) {
   }
   
   switch(head->type) {
-    case S_PROTO_MR_STATUS_REP:
+    case S_PROTO_MR_STATUS_DATA_REP:
       mr_stat_status_epilogue((uint32_t)len);
-      mac_rlc_handle_status_rep(head, buf, len);
-      break;
-    case S_PROTO_MR_DATA_REQ_REP:
-      mr_stat_req_epilogue((uint32_t)len);
+      mac_rlc_handle_status_data_rep(head, buf, len);
       break;
     case S_PROTO_MR_DATA_IND:
       mr_stat_ind_epilogue();
@@ -678,62 +645,41 @@ tbs_size_t mac_rlc_data_req(
  ******************************************************************************/
 
 #if defined(SPLIT_MAC_RLC_DU)
-/*  sp_head head = {0};
-  spmr_dreq dreq = {0};
-
-  char buf[DU_BUF_SIZE] = {0};
-  int buflen = 0;  
-  
-  head.type    = S_PROTO_MR_DATA_REQ;
-  head.vers    = 1;
-  head.len     = sizeof(spmr_dreq);
-  
-  dreq.rnti    = rntiP;
-  dreq.frame   = frameP;
-  dreq.channel = channel_idP;
-  
-  sp_pack_head(&head, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_dreq(&dreq, buf, DU_BUF_SIZE);
-
-  if(du_send(buf, buflen)) {   
-    mr_stat_req_prologue((uint32_t)buflen);
-  }
-*/
-
-//#if 0
   switch(channel_idP) {
+    case 0:
     case 1:
-      if(du_rlc_drep_ready_SRB[0]) {
-        /* Reset of waiting condition. */
-        du_rlc_drep_ready_SRB[0] = 0;
-
-        memcpy(buffer_pP, du_rlc_drep_data_SRB[0], du_rlc_drep_size_SRB[0]);
-        return du_rlc_drep_size_SRB[0];
-      }
-      return 0;
     case 2:
-      if(du_rlc_drep_ready_SRB[1]) {
+      if(du_rlc_drep_ready_SRB[channel_idP]) {
         /* Reset of waiting condition. */
-        du_rlc_drep_ready_SRB[1] = 0;
+        du_rlc_drep_ready_SRB[channel_idP] = 0;
 
-        memcpy(buffer_pP, du_rlc_drep_data_SRB[1], du_rlc_drep_size_SRB[1]);
-        return du_rlc_drep_size_SRB[1];
+        memcpy(buffer_pP, du_rlc_drep_data_SRB[channel_idP], du_rlc_drep_size_SRB[channel_idP]);
+        return du_rlc_drep_size_SRB[channel_idP];
       }
       return 0;
     case 3:
-      if(du_rlc_drep_ready_DRB[0]) {
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+      if(du_rlc_drep_ready_DRB[channel_idP]) {
         /* Reset of waiting condition. */
-        du_rlc_drep_ready_DRB[0] = 0;
+        du_rlc_drep_ready_DRB[channel_idP] = 0;
 
-        memcpy(buffer_pP, du_rlc_drep_data_DRB[0], du_rlc_drep_size_DRB[0]);
-        return du_rlc_drep_size_DRB[0];
+        memcpy(buffer_pP, du_rlc_drep_data_DRB[channel_idP], du_rlc_drep_size_DRB[channel_idP]);
+        return du_rlc_drep_size_DRB[channel_idP];
       }
       return 0;
     default:
       break;
   }
   return 0;
-//#endif
 #endif
 
 /******************************************************************************
@@ -997,56 +943,63 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
 #ifdef SPLIT_MAC_RLC_DU
   
   sp_head   head = {0};
-  spmr_sreq sreq = {0};
+  spmr_sreq_dreq sreq_dreq = {0};
 
   char buf[DU_BUF_SIZE] = {0};
   int buflen = 0;
 
-  head.type    = S_PROTO_MR_STATUS_REQ;
+  head.type    = S_PROTO_MR_STATUS_DATA_REQ;
   head.vers    = 1;
-  head.len     = sizeof(spmr_sreq);
+  head.len     = sizeof(spmr_sreq_dreq);
 
-  sreq.rnti    = rntiP;
-  sreq.frame   = frameP;
-  sreq.channel = channel_idP;
-  sreq.tb_size = tb_sizeP;
+  sreq_dreq.rnti    = rntiP;
+  sreq_dreq.frame   = frameP;
+  sreq_dreq.channel = channel_idP;
+  sreq_dreq.tb_size = tb_sizeP;
 
   sp_pack_head(&head, buf, DU_BUF_SIZE);
-  buflen = sp_mr_pack_sreq(&sreq, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_sreq_dreq(&sreq_dreq, buf, DU_BUF_SIZE);
   
-//#if 0
   switch(channel_idP) {
+    //case 0: /* Control Channel SRB0 */
     case 1: /* Control Channel SRB1 */
       if(du_send(buf, buflen) > 0) {
-	  mr_stat_status_prologue((uint32_t)buflen);
+          mr_stat_status_prologue((uint32_t)buflen);
       }
-      if(du_rlc_srep_ready_SRB[0]) {
+      if(du_rlc_srep_ready_SRB[channel_idP]) {
         /* Reset of waiting condition. */
-        du_rlc_srep_ready_SRB[0] = 0;
+        //printf("Value of du_rlc_srep_ready_SRB:%d\n",du_rlc_srep_ready_SRB[channel_idP]);
+        du_rlc_srep_ready_SRB[channel_idP] = 0;
 
-        return du_rlc_srep_data_SRB[0];
+        return du_rlc_srep_data_SRB[channel_idP];
       }
-     return du_rlc_srep_empty; 
-    case 2: /* Control Channel SRB2) */
-      if(du_send(buf, buflen) > 0) {
-	  mr_stat_status_prologue((uint32_t)buflen);
-      }
-      if(du_rlc_srep_ready_SRB[1]) {
+      return du_rlc_srep_empty;
+    case 2: /* Control Channel SRB2 */
+      if(du_rlc_srep_ready_SRB[channel_idP]) {
         /* Reset of waiting condition. */
-        du_rlc_srep_ready_SRB[1] = 0;
+        //printf("Value of du_rlc_srep_ready_SRB:%d\n",du_rlc_srep_ready_SRB[channel_idP]);
+        du_rlc_srep_ready_SRB[channel_idP] = 0;
 
-        return du_rlc_srep_data_SRB[1];
+        return du_rlc_srep_data_SRB[channel_idP];
       }
-      return du_rlc_srep_empty; 
-    case 3: /* Data Channel DRB1 or Default Radio Bearer */
-      if(du_send(buf, buflen) > 0) {
-	  mr_stat_status_prologue((uint32_t)buflen);
-      }
-      if(du_rlc_srep_ready_DRB[0]) {
+      return du_rlc_srep_empty;
+    case 3: /* DRB1 */
+    case 4: /* DRB2 */
+    case 5: /* DRB3 */
+    case 6: /* DRB4 */
+    case 7: /* DRB5 */
+    case 8: /* DRB6 */
+    case 9: /* DRB7 */
+    case 10:/* DRB8 */
+    case 11:/* DRB9 */
+    case 12:/* DRB10*/
+    case 13:/* DRB11*/
+      //printf("Value of du_rlc_srep_ready_DRB:%d,Channel:%d\n",du_rlc_srep_ready_DRB[channel_idP],channel_idP);
+      if(du_rlc_srep_ready_DRB[channel_idP]) {
         /* Reset of waiting condition. */
-        du_rlc_srep_ready_DRB[0] = 0;
+        du_rlc_srep_ready_DRB[channel_idP] = 0;
 
-        return du_rlc_srep_data_DRB[0];
+        return du_rlc_srep_data_DRB[channel_idP];
       }
       return du_rlc_srep_empty;
     default:
@@ -1054,7 +1007,6 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   }
 
   return du_rlc_srep_empty;
-//#endif
 #endif
 
 #ifdef SPLIT_MAC_RLC_CU

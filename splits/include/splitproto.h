@@ -31,14 +31,10 @@ enum split_proto_message_types {
 	 * MAC-RLC split protocols:
 	 */
 
-	/* Request the status of the RLC data. */
-	S_PROTO_MR_STATUS_REQ,
-	/* Reply to a previous request with the status of the RLC. */
-	S_PROTO_MR_STATUS_REP,
-	/* Data request type. */
-	S_PROTO_MR_DATA_REQ,
-	/* Data request reply type. */
-	S_PROTO_MR_DATA_REQ_REP,
+	/* Request the status of all RLC logical channels buffer(Control and Data plane) along with the actual data. */
+	S_PROTO_MR_STATUS_DATA_REQ,
+	/* Reply to a previous request with the status and data from all logical channel buffers. */
+	S_PROTO_MR_STATUS_DATA_REP,
 	/* Data Ind type. */
 	S_PROTO_MR_DATA_IND,
         /* RRC Data Req type. */
@@ -143,110 +139,64 @@ int sp_mr_identify_rrc_ireq(
 	spmr_rrc_ireq ** rrc_ireq, char * buf, uint32_t len);
 
 
-typedef struct split_mr_status_request {
+typedef struct split_mr_status_data_request {
 	/* RNTI id. */
 	uint16_t rnti;
 	/* Frame where the request is issued. */
 	uint32_t frame;
-	/* Channel where the request is issued. */
+	/* Channel where the request is issued. When the request is issued for one channel, 
+	 * respond with status and data from all channels */
 	uint32_t channel;
 	/* Transport block size. */
 	uint32_t tb_size;
-}__attribute__((packed)) spmr_sreq;
+}__attribute__((packed)) spmr_sreq_dreq;
 
 /* Pack values of the structure into the given buffer.
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_pack_sreq(spmr_sreq * sreq, char * buf, uint32_t len);
+int sp_mr_pack_sreq_dreq(spmr_sreq_dreq * sreq_dreq, char * buf, uint32_t len);
 
 /* Adjust the given pointer to point to the area where the structure is located.
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_identify_sreq(spmr_sreq ** sreq, char * buf, uint32_t len);
+int sp_mr_identify_sreq_dreq(spmr_sreq_dreq ** sreq_dreq, char * buf, uint32_t len);
 
-typedef struct split_mr_status_reply {
+typedef struct split_mr_status_data_reply {
 	/* RNTI id. */
 	uint16_t rnti;
 	/* Frame where the request is issued. */
 	uint32_t frame;
-	/* Channel where the request is issued. */
-	uint32_t channel;
+	/* Channels where the request is issued.3 SRB and 11 DRB */
+	uint32_t channel[14];
 	/* Transport block size. */
-	uint32_t tb_size;
+	uint32_t tb_size[14];
 	/* Number of bytes. */
-	int32_t  bytes;
+	int32_t  bytes[14];
 	/* Number of PDUs. */
-	uint32_t pdus;
+	uint32_t pdus[14];
 	/* Frame where it will be sent. */
-	uint32_t creation_time;
+	uint32_t creation_time[14];
 	/* Remaining bytes left. If the SDU is not segmented, the size of the
 	 * SDU itself.
 	 */
-	uint32_t remaining_bytes;
+	uint32_t remaining_bytes[14];
 	/* Indicates if the SDU is segmented. */
-	uint32_t segmented;
-}__attribute__((packed)) spmr_srep;
+	uint32_t segmented[14];
+}__attribute__((packed)) spmr_srep_drep;
 
 /* Pack values of the structure into the given buffer.
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_pack_srep(spmr_srep * srep, char * buf, uint32_t len);
+int sp_mr_pack_srep_drep(spmr_srep_drep * srep_drep, char * buf, uint32_t len);
 
 /* Adjust the given pointer to point to the area where the structure is located.
  *
  * Return 0 on success, otherwise a negative error code.
  */
-int sp_mr_identify_srep(spmr_srep ** srep, char * buf, uint32_t len);
-
-
-/*
- * DL data RLC->MAC
- */
-
-typedef struct split_mr_data_request {
-	/* RNTI id. */
-	uint16_t rnti;
-	/* Frame where the request is issued. */
-	uint32_t frame;
-	/* Channel where the request is issued. */
-	uint32_t channel;
-}__attribute__((packed)) spmr_dreq;
-
-/* Pack values of the structure into the given buffer.
- *
- * Return 0 on success, otherwise a negative error code.
- */
-int sp_mr_pack_dreq(spmr_dreq * dreq, char * buf, uint32_t len);
-
-/* Adjust the given pointer to point to the area where the structure is located.
- *
- * Return 0 on success, otherwise a negative error code.
- */
-int sp_mr_identify_dreq(spmr_dreq ** dreq, char * buf, uint32_t len);
-
-typedef struct split_mr_data_reply {
-	/* RNTI id. */
-	uint16_t rnti;
-	/* Frame where the request is issued. */
-	uint32_t frame;
-	/* Channel where the request is issued. */
-	uint32_t channel;
-}__attribute__((packed)) spmr_drep;
-
-/* Pack values of the structure into the given buffer.
- *
- * Return 0 on success, otherwise a negative error code.
- */
-int sp_mr_pack_drep(spmr_drep * drep, char * buf, uint32_t len);
-
-/* Adjust the given pointer to point to the area where the structure is located.
- *
- * Return 0 on success, otherwise a negative error code.
- */
-int sp_mr_identify_drep(spmr_drep ** drep, char * buf, uint32_t len);
+int sp_mr_identify_srep_drep(spmr_srep_drep ** srep_drep, char * buf, uint32_t len);
 
 /*
  * DL data RRC->MAC

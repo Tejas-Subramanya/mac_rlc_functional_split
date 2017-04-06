@@ -25,9 +25,8 @@
 #if defined(SPLIT_MAC_RLC_DU)
 #include "mr_du.h"
 extern int du_status_arrived;
-extern spmr_srep du_status_data;
+extern spmr_srep_drep du_status_data;
 extern int du_data_arrived;
-extern spmr_drep du_data_reply;
 extern int du_rrc_data_arrived;
 #endif
 
