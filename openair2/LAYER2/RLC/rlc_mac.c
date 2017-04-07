@@ -48,7 +48,6 @@
 
 #if defined (SPLIT_MAC_RLC_CU) || defined (SPLIT_MAC_RLC_DU)
 
-
 /*
  * Operations which are in common for both the profiles.
  */
@@ -58,6 +57,7 @@
 /*
  * This area is valid only if CU profile is enabled.
  */
+
 #ifdef SPLIT_MAC_RLC_CU
 
 /* 
@@ -100,9 +100,10 @@ mac_enb_index_t cu_rrc_idx      = 0; /* Equal as mod_id, usually. */
 uint8_t         cu_rrc_mbsfn    = 0; /* Not collected, always 0. */
 
 /******************************************************************************
- * Reply for MAC-RLC Status Indicator and Data request.
- * Data is also sent along with Status Indicator response.                                        *
+ *           Reply for MAC-RLC Status Indicator and Data request.             *
+ *           Data is also sent along with Status Indicator response.          *
  ******************************************************************************/
+
 int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) {
 
   spmr_sreq_dreq * sreq_dreq = 0;
@@ -124,7 +125,7 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
 
   tbs = sreq_dreq->tb_size;
   dtch_header_len = 0;
-  
+ 
   for (int i=0; i<(NB_RB_MAX); i++) {
     /* Replicate the normal call with given parameters for status_ind: */
     ret[i] = mac_rlc_status_ind(
@@ -135,7 +136,7 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
         cu_eNB_flag,
         cu_MBMS_flag,
         i,
-        tbs); /* Consider the TBS after subtracting the header size and data size for previous channel */
+        tbs); /* Consider the TBS after subtracting the total size  for previous channel */
   
     /* Replicate the normal call with given parameters for data_req: */
     if(tbs > 0 && (sreq_dreq->channel != 0) && (ret[i].bytes_in_buffer > 0)) {
@@ -164,17 +165,20 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
     srep_drep.remaining_bytes[i] = ret[i].head_sdu_remaining_size_to_send;
     srep_drep.segmented[i]       = ret[i].head_sdu_is_segmented;
 
+    /* If data is available in this logical channel buffer copy              *
+     * to the local buffer. Also update the total length of the local buffer */ 
     if(tmplen[i]>0) {
       memcpy(cu_databuf_temp + data_len_total, tmpbuf[i], tmplen[i]);        
       data_len_total += tmplen[i];
     }
+    /* If data is available in DTCH logical channel buffer include its header length to the total TBS size */
     if(sreq_dreq->channel > 2 && tmplen[i]>0) {
       dtch_header_len = 3;
     }
     else {
       dtch_header_len = 0;
     }
-
+    /* If TBS value is greater than loop through next logical channel buffers */
     if(tbs-tmplen[i]-dtch_header_len) {
       tbs = tbs-tmplen[i]-dtch_header_len;
     } 
@@ -402,8 +406,8 @@ int mac_rlc_handle_status_data_rep(sp_head * head, char * buf, unsigned int len)
     return -1;
   }
 
-  for (int i=0; i<(maxDRB+3); i++) {
-    if (srep_drep->channel[i] < 3) {
+  for (int i=0; i<(NB_RB_MAX); i++) {
+    if (srep_drep->channel[i] < 3) { /* For SRB0, SRB1 and SRB2 */
       du_rlc_srep_data_SRB[i].bytes_in_buffer = srep_drep->bytes[i];
       du_rlc_srep_data_SRB[i].head_sdu_creation_time = srep_drep->creation_time[i];
       du_rlc_srep_data_SRB[i].head_sdu_is_segmented = srep_drep->segmented[i];
@@ -426,7 +430,7 @@ int mac_rlc_handle_status_data_rep(sp_head * head, char * buf, unsigned int len)
       
       du_rlc_srep_ready_SRB[i] = 1;
     }
-    else {      
+    else { /* DRB1 to DRB11*/     
       du_rlc_srep_data_DRB[i].bytes_in_buffer = srep_drep->bytes[i];
       du_rlc_srep_data_DRB[i].head_sdu_creation_time = srep_drep->creation_time[i];
       du_rlc_srep_data_DRB[i].head_sdu_is_segmented = srep_drep->segmented[i];
@@ -460,8 +464,7 @@ int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
 
   /* Check the type of RRC data(SIB1 or SIB23 or SRB0).
    * Lock the memory critical section before using it for thread synchronization. 
-   * Write the respective feedback data only if it is a new data.
-   */
+   * Write the respective feedback data. */
 
   if((drep->srb_id & RAB_OFFSET) == BCCH) {
     if(((drep->frame)%2) == 0) {
@@ -646,9 +649,10 @@ tbs_size_t mac_rlc_data_req(
 
 #if defined(SPLIT_MAC_RLC_DU)
   switch(channel_idP) {
-    case 0:
-    case 1:
-    case 2:
+    case 0: /* SRB0 */
+    case 1: /* SRB1 */
+    case 2: /* SRB2 */
+      
       if(du_rlc_drep_ready_SRB[channel_idP]) {
         /* Reset of waiting condition. */
         du_rlc_drep_ready_SRB[channel_idP] = 0;
@@ -657,17 +661,19 @@ tbs_size_t mac_rlc_data_req(
         return du_rlc_drep_size_SRB[channel_idP];
       }
       return 0;
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-    case 9:
-    case 10:
-    case 11:
-    case 12:
-    case 13:
+    
+    case 3: /* DRB1 */
+    case 4: /* DRB2 */
+    case 5: /* DRB3 */
+    case 6: /* DRB4 */
+    case 7: /* DRB5 */
+    case 8: /* DRB6 */
+    case 9: /* DRB7 */
+    case 10:/* DRB8 */
+    case 11:/* DRB9 */
+    case 12:/* DRB10*/
+    case 13:/* DRB11*/
+
       if(du_rlc_drep_ready_DRB[channel_idP]) {
         /* Reset of waiting condition. */
         du_rlc_drep_ready_DRB[channel_idP] = 0;
@@ -676,6 +682,7 @@ tbs_size_t mac_rlc_data_req(
         return du_rlc_drep_size_DRB[channel_idP];
       }
       return 0;
+    
     default:
       break;
   }
@@ -974,6 +981,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
         return du_rlc_srep_data_SRB[channel_idP];
       }
       return du_rlc_srep_empty;
+
     case 2: /* Control Channel SRB2 */
       if(du_rlc_srep_ready_SRB[channel_idP]) {
         /* Reset of waiting condition. */
@@ -983,6 +991,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
         return du_rlc_srep_data_SRB[channel_idP];
       }
       return du_rlc_srep_empty;
+
     case 3: /* DRB1 */
     case 4: /* DRB2 */
     case 5: /* DRB3 */
@@ -994,7 +1003,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
     case 11:/* DRB9 */
     case 12:/* DRB10*/
     case 13:/* DRB11*/
-      //printf("Value of du_rlc_srep_ready_DRB:%d,Channel:%d\n",du_rlc_srep_ready_DRB[channel_idP],channel_idP);
+     
       if(du_rlc_srep_ready_DRB[channel_idP]) {
         /* Reset of waiting condition. */
         du_rlc_srep_ready_DRB[channel_idP] = 0;
@@ -1002,6 +1011,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
         return du_rlc_srep_data_DRB[channel_idP];
       }
       return du_rlc_srep_empty;
+    
     default:
       break;
   }
