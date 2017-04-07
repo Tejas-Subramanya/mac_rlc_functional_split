@@ -112,7 +112,7 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
   int blen = 0;
   mac_rlc_status_resp_t ret[NB_RB_MAX]  = {0}; 
   unsigned char tmpbuf[NB_RB_MAX][MAX_DLSCH_PAYLOAD_BYTES] = {0};
-  char cu_databuf_temp[MAX_DLSCH_PAYLOAD_BYTES] = {0};
+  char cu_databuf_temp[NB_RB_MAX * MAX_DLSCH_PAYLOAD_BYTES] = {0};
   tbs_size_t tmplen[NB_RB_MAX] = {0};
 
   int tbs;
@@ -178,7 +178,7 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
     else {
       dtch_header_len = 0;
     }
-    /* If TBS value is greater than loop through next logical channel buffers */
+    /* Loop through next logical channel buffers */
     if(tbs-tmplen[i]-dtch_header_len) {
       tbs = tbs-tmplen[i]-dtch_header_len;
     } 
@@ -191,9 +191,9 @@ int mac_rlc_status_data_req_reply(sp_head * head, char * buf, unsigned int len) 
   head->vers           = 1;
   head->type           = S_PROTO_MR_STATUS_DATA_REP;
 
-  sp_pack_head(head, cu_outbuf, CU_BUF_SIZE);
-  blen = sp_mr_pack_srep_drep(&srep_drep, cu_outbuf, CU_BUF_SIZE);
-  memcpy(cu_outbuf + blen, cu_databuf_temp, data_len_total);
+  sp_pack_head(head, cu_outbuf, MAX_DLSCH_PAYLOAD_BYTES);
+  blen = sp_mr_pack_srep_drep(&srep_drep, cu_outbuf, MAX_DLSCH_PAYLOAD_BYTES);
+  memcpy(cu_outbuf + blen, cu_databuf_temp, data_len_total); /* Check if total data length exceeds max udp buffer size of 65516 */
   
   cu_send(cu_outbuf, blen+data_len_total);
 
@@ -400,7 +400,6 @@ char du_rlc_drep_data_DRB[maxDRB][MAX_DLSCH_PAYLOAD_BYTES] = {0};
 int mac_rlc_handle_status_data_rep(sp_head * head, char * buf, unsigned int len) {
   spmr_srep_drep *srep_drep = 0;
   int tmplen_total = 0;
-  char drep_buf_temp[MAX_DLSCH_PAYLOAD_BYTES] = {0};
 
   if(sp_mr_identify_srep_drep(&srep_drep, buf, len)) {
     return -1;
@@ -467,6 +466,7 @@ int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
    * Write the respective feedback data. */
 
   if((drep->srb_id & RAB_OFFSET) == BCCH) {
+    /* SIB1 in all even frames */
     if(((drep->frame)%2) == 0) {
       pthread_spin_lock(&du_lock);
       du_rrc_drep_size_SIB1 = head->len - sizeof(spmr_rrc_drep);
@@ -476,6 +476,7 @@ int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
             du_rrc_drep_size_SIB1);
       pthread_spin_unlock(&du_lock);
     }
+    /* SIB23 once is 8 frames */
     if(((drep->frame)%8) == 1) {
       pthread_spin_lock(&du_lock);
       du_rrc_drep_size_SIB23 = head->len - sizeof(spmr_rrc_drep);
@@ -486,6 +487,7 @@ int mac_rrc_handle_data_rep(sp_head * head, char * buf, unsigned int len) {
       pthread_spin_unlock(&du_lock);
     }
   }
+
   if((drep->srb_id & RAB_OFFSET) == CCCH) {
     pthread_spin_lock(&du_lock);
     du_rrc_drep_size_SRB0 = head->len - sizeof(spmr_rrc_drep);
@@ -968,7 +970,7 @@ mac_rlc_status_resp_t mac_rlc_status_ind(
   buflen = sp_mr_pack_sreq_dreq(&sreq_dreq, buf, DU_BUF_SIZE);
   
   switch(channel_idP) {
-    //case 0: /* Control Channel SRB0 */
+    case 0: /* Control Channel SRB0 */
     case 1: /* Control Channel SRB1 */
       if(du_send(buf, buflen) > 0) {
           mr_stat_status_prologue((uint32_t)buflen);
