@@ -621,7 +621,19 @@ add_boolean_option(MESSAGE_CHART_GENERATOR_RLC_MAC False "trace RLC-MAC exchange
 add_boolean_option(MESSAGE_CHART_GENERATOR_PHY     False "trace some PHY exchanges in sequence diagrams")
 
 add_boolean_option(ENB_AGENT                   True         "enable eNB agent to inteface with a SDN contrller")
-add_boolean_option(EMAGE_AGENT                 True         "enable EMAge agent to inteface with a controller")
+
+add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
+
+##########################
+# Split options
+##########################
+
+add_boolean_option(SPLIT_MAC_RLC_CU        False "enable the split mechanism between MAC and RLC at CU side")
+add_boolean_option(SPLIT_MAC_RLC_DU        True  "enable the split mechanism between MAC and RLC at DU side")
+add_boolean_option(SPLIT_MAC_RLC_STATS     True  "enable/disable statistics collection for mar-rlc split")
+
+add_boolean_option(EMAGE_AGENT                 False         "enable EMAge agent to inteface with a controller")
+
 ########################
 # Include order
 ##########################
@@ -868,7 +880,47 @@ if (${EMAGE_AGENT})
 
 endif(${EMAGE_AGENT})
 
-##########################
+#################################
+# Split functionalities Library #
+#################################
+
+Message("SPLIT_MAC_RLC_CU flag  is ${SPLIT_MAC_RLC_CU}")
+Message("SPLIT_MAC_RLC_DU flag  is ${SPLIT_MAC_RLC_DU}")
+
+if (${SPLIT_MAC_RLC_CU})
+  set(OAI_SPLIT_DIR ${OPENAIR_DIR}/splits)
+  include_directories (${OAI_SPLIT_DIR})
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/cu)
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/stats)
+  include_directories (${OAI_SPLIT_DIR}/include)
+
+  add_library(SPLIT_MAC_RLC_CU_LIB 
+    ${OAI_SPLIT_DIR}/mac-rlc/cu/mr_cu.c
+    ${OAI_SPLIT_DIR}/mac-rlc/stats/mr_stats.c
+    ${OAI_SPLIT_DIR}/netw/udp/netw_udp.c
+    ${OAI_SPLIT_DIR}/proto/raw/proto_raw.c
+  )
+
+set(SPLIT_LIB SPLIT_MAC_RLC_CU_LIB)
+
+endif(${SPLIT_MAC_RLC_CU})
+
+if (${SPLIT_MAC_RLC_DU})
+  set(OAI_SPLIT_DIR ${OPENAIR_DIR}/splits)
+  include_directories (${OAI_SPLIT_DIR})
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/du)
+  include_directories (${OAI_SPLIT_DIR}/mac-rlc/stats)
+  include_directories (${OAI_SPLIT_DIR}/include)
+
+  add_library(SPLIT_MAC_RLC_DU_LIB 
+    ${OAI_SPLIT_DIR}/mac-rlc/du/mr_du.c
+    ${OAI_SPLIT_DIR}/mac-rlc/stats/mr_stats.c
+    ${OAI_SPLIT_DIR}/netw/udp/netw_udp.c
+    ${OAI_SPLIT_DIR}/proto/raw/proto_raw.c
+  )
+  set(SPLIT_LIB SPLIT_MAC_RLC_DU_LIB)
+
+endif(${SPLIT_MAC_RLC_DU})
 
 # Utilities Library
 ################
@@ -1688,6 +1740,17 @@ if (${EMAGE_AGENT})
   target_link_libraries (lte-softmodem ${AGENT_WRAP_LIB} ${AGENT_PROTO_LIB} ${PROTOBUF_LIB})
 endif (${EMAGE_AGENT})
 
+#################################
+# Split options.                #
+#################################
+
+if (${SPLIT_MAC_RLC_CU})
+  target_link_libraries (lte-softmodem ${SPLIT_LIB})
+endif (${SPLIT_MAC_RLC_CU})
+
+if (${SPLIT_MAC_RLC_DU})
+  target_link_libraries (lte-softmodem ${SPLIT_LIB})
+endif (${SPLIT_MAC_RLC_DU})
 
 # lte-softmodem-nos1 is both eNB and UE implementation
 ###################################################

@@ -26,6 +26,11 @@
  * \version 1.0
  * \company Eurecom
  * \email: raymond.knopp@eurecom.fr
+
+  CO-AUTHORS : Tejas Subramanya and Kewin Rausch
+  COMPANY    : FBK CREATE-NET
+  EMAIL      : t.subramanya@fbk.eu; kewin.rausch@fbk.eu 
+  Description: MAC-RLC functional split
  */
 
 #include "platform_types.h"
@@ -40,6 +45,7 @@
 #include "rrc_eNB_UE_context.h"
 #include "pdcp.h"
 #include "msc.h"
+#include "create_tasks.h"
 
 #ifdef PHY_EMUL
 #include "SIMULATION/simulation_defs.h"
@@ -54,6 +60,14 @@ extern UE_MAC_INST *UE_mac_inst;
 
 //#define RRC_DATA_REQ_DEBUG
 #define DEBUG_RRC 1
+
+#    ifdef SPLIT_MAC_RLC_CU
+#        include "mr_cu.h"
+#    endif /* SPLIT_MAC_RLC_CU */
+
+#    ifdef SPLIT_MAC_RLC_DU
+#        include "mr_du.h"
+#    endif /* SPLIT_MAC_RLC_DU */
 
 mui_t mui=0;
 
@@ -74,6 +88,75 @@ mac_rrc_data_req(
 {
   SRB_INFO *Srb_info;
   uint8_t Sdu_size=0;
+
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
+
+#if defined(SPLIT_MAC_RLC_DU)
+  sp_head head;
+  spmr_rrc_dreq dreq;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
+  int sdu_size = 0;
+
+  head.type = S_PROTO_MR_RRC_DATA_REQ;
+  head.vers = 1;
+  head.len  = sizeof(spmr_rrc_dreq);
+  
+  dreq.CC_id       = CC_id;
+  dreq.frame       = frameP;
+  dreq.srb_id      = Srb_id;
+  dreq.num_tb      = Nb_tb;
+  
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_dreq(&dreq, buf, DU_BUF_SIZE);
+
+  if(du_send(buf, buflen) > 0) {
+    mr_stat_rrc_req_prologue((uint32_t)buflen);
+  }
+
+  if((Srb_id & RAB_OFFSET) == BCCH) {
+    if((frameP%2) == 0) {
+      pthread_spin_lock(&du_lock);
+      memcpy(
+            buffer_pP,
+            du_rrc_drep_data_SIB1,
+            du_rrc_drep_size_SIB1);
+      sdu_size = du_rrc_drep_size_SIB1;
+      pthread_spin_unlock(&du_lock);
+      return sdu_size;
+    }
+    if(frameP%8 == 1) {
+      pthread_spin_lock(&du_lock);
+      memcpy(
+            buffer_pP,
+            du_rrc_drep_data_SIB23,
+            du_rrc_drep_size_SIB23);
+      sdu_size = du_rrc_drep_size_SIB23;
+      pthread_spin_unlock(&du_lock);
+      return sdu_size;
+    }
+  }
+  if((Srb_id & RAB_OFFSET) == CCCH) {
+    pthread_spin_lock(&du_lock);
+    memcpy(
+          buffer_pP,
+          du_rrc_drep_data_SRB0,
+          du_rrc_drep_size_SRB0);
+    sdu_size = du_rrc_drep_size_SRB0;
+    pthread_spin_unlock(&du_lock);
+    return sdu_size;
+  }
+    
+  return 0;
+
+//#endif
+#endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
 #ifdef DEBUG_RRC
   int i;
@@ -131,7 +214,6 @@ mac_rrc_data_req(
 
         LOG_T(RRC,"\n");
 #endif
-
         return (eNB_rrc_inst[Mod_idP].carrier[CC_id].sizeof_SIB1);
       } // All RFN mod 8 transmit SIB2-3 in SF 5
       else if ((frameP%8) == 1) {
@@ -350,6 +432,44 @@ mac_rrc_data_ind(
 
   /* for no gcc warnings */
   (void)sdu_size;
+
+/******************************************************************************
+ * MAC-RLC split mechanisms.                                                  *
+ ******************************************************************************/
+
+#if defined(SPLIT_MAC_RLC_DU)
+
+  sp_head head;
+  spmr_rrc_ireq ireq;
+  char buf[DU_BUF_SIZE] = {0};
+  int buflen = 0;  
+  
+  head.type     = S_PROTO_MR_RRC_DATA_IND;
+  head.vers     = 1;
+  head.len      = sizeof(spmr_rrc_ireq) + sdu_lenP;
+  
+  ireq.CC_id    = CC_id;
+  ireq.rnti     = rntiP;
+  ireq.frame    = frameP;
+  ireq.subframe = sub_frameP;
+  ireq.srb_id   = srb_idP;
+  
+  sp_pack_head(&head, buf, DU_BUF_SIZE);
+  buflen = sp_mr_pack_rrc_ireq(&ireq, buf, DU_BUF_SIZE);
+  memcpy(buf + buflen, sduP, sdu_lenP);
+
+  if(du_send(buf, buflen + sdu_lenP) > 0) {
+    mr_stat_rrc_ind_prologue(buflen);
+  }
+
+  /* Send the message and return immediately. Local RRC is not required. */
+  return 0;
+
+#endif
+
+/******************************************************************************
+ * End of MAC-RLC split mechanisms.                                           *
+ ******************************************************************************/
 
   /*
   int si_window;

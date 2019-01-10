@@ -23,6 +23,7 @@
 # include "intertask_interface.h"
 # include "create_tasks.h"
 # include "log.h"
+# include <signal.h>
 
 # ifdef OPENAIR2
 #   if defined(ENABLE_USE_MME)
@@ -37,6 +38,18 @@
 #     include "lteRALenb.h"
 #   endif
 #   include "RRC/LITE/defs.h"
+
+#   if defined(SPLIT_MAC_RLC_CU)
+#     include "mr_cu.h"
+#     include "rlc.h"
+#     include <pthread.h>
+#   endif
+
+#   if defined(SPLIT_MAC_RLC_DU)
+#     include <unistd.h>
+#     include "mr_du.h"
+#     include "rlc.h"
+#   endif
 # endif
 # include "enb_app.h"
 
@@ -125,6 +138,34 @@ int create_tasks(uint32_t enb_nb, uint32_t ue_nb)
 
 #   endif
     }
+
+#ifdef SPLIT_MAC_RLC_CU
+    pthread_t dummy_sched_thread;
+
+    if (enb_nb > 0) {
+      // Arguments for UDP netw are "destination_ip:local_listening_port".
+      if (cu_init("192.168.100.100:9001", mac_rlc_cu_recv)) {
+        LOG_E(SPLIT_MAC_RLC_CU, "Create thread for  SPLIT MACRLC CU failed\n");
+        return -1;
+      }
+/*      if(pthread_create(&dummy_sched_thread, NULL, dummy_sched_loop, 0)) { 
+        CU_DBG("CU: Failed to start dummy_sched thread.\n");
+        return -1;
+      }
+*/ 
+    }
+
+#endif
+
+#ifdef SPLIT_MAC_RLC_DU
+    if (enb_nb > 0) {
+      // Arguments for UDP netw are "destination_ip:local_listening_port".
+      if (du_init("192.168.100.101:9001", mac_rlc_du_recv)) {
+        LOG_E(SPLIT_MAC_RLC_DU, "Create thread for SPLIT MACRLC DU failed\n");
+        return -1;
+      }
+    }
+#endif
   }
 # endif // openair2: NN: should be openair3
 

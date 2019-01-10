@@ -22,6 +22,14 @@
 #ifndef CREATE_TASKS_H_
 #define CREATE_TASKS_H_
 
+#if defined(SPLIT_MAC_RLC_DU)
+#include "mr_du.h"
+extern int du_status_arrived;
+extern spmr_srep_drep du_status_data;
+extern int du_data_arrived;
+extern int du_rrc_data_arrived;
+#endif
+
 #if defined(ENABLE_ITTI)
 /* External declaration of L2L1 task that depend on the target */
 extern void *l2l1_task(void *arg);

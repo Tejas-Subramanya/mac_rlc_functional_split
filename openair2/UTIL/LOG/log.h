@@ -276,6 +276,8 @@ typedef enum {
   RRH,
   X2AP,
   MAX_LOG_COMPONENTS,
+  SPLIT_MACRLC_CU,
+  SPLIT_MACRLC_DU
 }
 comp_name_t;
 

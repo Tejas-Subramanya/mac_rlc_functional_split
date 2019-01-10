@@ -452,8 +452,8 @@ int itti_send_msg_to_task(task_id_t destination_task_id, instance_t instance, Me
       new->message_number = message_number;
       new->message_priority = priority;
 
-      /* Enqueue message in destination task queue */
-      if (lfds611_queue_enqueue(itti_desc.tasks[destination_task_id].message_queue, new) == 0) {
+      /* Enqueue message in destination task queue lfds611_queue_guaranteed_enqueue*/
+      if (lfds611_queue_guaranteed_enqueue(itti_desc.tasks[destination_task_id].message_queue, new) == 0) {
         AssertFatal(0, "Error: lfds611_queue_enqueue returns 0, queue is full, exiting\n");
       }
 
